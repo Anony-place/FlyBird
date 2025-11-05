@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flappy Bird Ultimate</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="game-container">
+        <canvas id="gameCanvas"></canvas>
+        
+        <!-- Native Advanced Ad Container (for in-game ads) -->
+        <div id="native-ad-container" style="position: absolute; top: 10px; left: 10px; z-index: 100; max-width: 300px;"></div>
+        
+        <!-- Game UI Overlay -->
+        <div class="ui-overlay" id="gameUI">
+            <div class="ui-top-section">
+                <div class="score-display">
+                    <div class="score-item">
+                        <div class="score-label">SCORE</div>
+                        <div class="score-value" id="scoreValue">0</div>
+                    </div>
+                    <div class="score-item">
+                        <div class="score-label">COMBO</div>
+                        <div class="score-value combo-value" id="comboValue">x1</div>
+                    </div>
+                    <div class="score-item">
+                        <div class="score-label">COINS</div>
+                        <div class="score-value coin-value" id="coinsValue">0</div>
+                    </div>
+                </div>
+            </div>
+            <div class="ui-middle-section">
+                <div class="power-ups-display" id="powerUpsDisplay"></div>
+            </div>
+            <div class="ui-bottom-section">
+                <div class="high-score-display">HIGH: <span id="highScoreValue">0</span></div>
+                <div class="difficulty-indicator" id="difficultyIndicator">EASY</div>
+            </div>
+        </div>
+
+        <!-- Starting Animation Overlay -->
+        <div class="starting-animation" id="startingAnimation">
+            <div class="animation-content">
+                <div class="bird-logo">🐦</div>
+                <h2>FLAPPY BIRD</h2>
+                <p>ULTIMATE</p>
+            </div>
+        </div>
+
+        <!-- Main Menu -->
+        <div class="menu-overlay" id="mainMenu">
+            <div class="menu-content">
+                <div class="menu-header">
+                    <h1 class="menu-title">🐦 FLAPPY BIRD</h1>
+                    <p class="menu-subtitle">ULTIMATE</p>
+                </div>
+                <p class="menu-tagline">Tap to Fly • Avoid Pipes • Get Coins</p>
+                
+                <!-- Player Rank in Menu -->
+                <div class="menu-player-rank" id="menuPlayerRank">
+                    <span class="rank-icon-small" id="menuRankIcon">🏆</span>
+                    <span class="rank-text-small" id="menuRankText">Rookie</span>
+                </div>
+
+                <!-- Character Section -->
+                <div class="menu-section">
+                    <div class="menu-section-title">🐦 CHARACTER</div>
+                    <div class="character-select" id="characterSelect"></div>
+                </div>
+
+                <!-- Difficulty Section -->
+                <div class="menu-section">
+                    <div class="menu-section-title">⚡ DIFFICULTY</div>
+                    <div class="difficulty-select" id="difficultySelect"></div>
+                </div>
+
+                <!-- Primary Action Button -->
+                <div class="menu-section">
+                    <button class="button button-primary" id="playGameBtn">PLAY GAME</button>
+                </div>
+
+                <!-- Menu Options Row -->
+                <div class="menu-section menu-options">
+                    <button class="button button-secondary" id="leaderboardBtn">🏆 LEADERBOARD</button>
+                    <button class="button button-secondary" id="settingsBtn">⚙️ SETTINGS</button>
+                    <button class="button button-secondary" id="aboutBtn">ℹ️ ABOUT</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pause Menu -->
+        <div class="modal-overlay" id="pauseMenuOverlay">
+            <div class="pause-menu" id="pauseMenu">
+                <h2 class="pause-title">⏸ PAUSED</h2>
+                <div class="pause-buttons">
+                    <button class="button button-primary" id="resumeBtn">RESUME</button>
+                    <button class="button button-secondary" id="restartBtn">RESTART</button>
+                    <button class="button button-secondary" id="mainMenuBtn">MAIN MENU</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Settings Panel -->
+        <div class="modal-overlay" id="settingsOverlay">
+            <div class="settings-panel" id="settingsPanel">
+                <div class="panel-header">
+                    <h2>⚙️ SETTINGS</h2>
+                    <button class="close-btn" id="settingsCloseBtn">✕</button>
+                </div>
+                
+                <div class="settings-content">
+                    <div class="settings-group">
+                        <h3 class="group-title">AUDIO</h3>
+                        <div class="setting-item">
+                            <span class="setting-label">Master Volume</span>
+                            <div class="setting-value">
+                                <input type="range" class="slider" id="masterVolume" min="0" max="100" value="70">
+                                <span class="volume-label" id="volumeValue">70%</span>
+                            </div>
+                        </div>
+                        <div class="setting-item">
+                            <span class="setting-label">Music Volume</span>
+                            <div class="setting-value">
+                                <input type="range" class="slider" id="musicVolume" min="0" max="100" value="50">
+                                <span class="volume-label" id="musicVolumeValue">50%</span>
+                            </div>
+                        </div>
+                        <div class="setting-item">
+                            <span class="setting-label">SFX Volume</span>
+                            <div class="setting-value">
+                                <input type="range" class="slider" id="sfxVolume" min="0" max="100" value="70">
+                                <span class="volume-label" id="sfxVolumeValue">70%</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="settings-group">
+                        <h3 class="group-title">TOGGLES</h3>
+                        <div class="setting-item">
+                            <span class="setting-label">Sound Effects</span>
+                            <div class="toggle-btn enabled" id="sfxToggle"></div>
+                        </div>
+                        <div class="setting-item">
+                            <span class="setting-label">Music</span>
+                            <div class="toggle-btn enabled" id="musicToggle"></div>
+                        </div>
+                        <div class="setting-item">
+                            <span class="setting-label">Particle Effects</span>
+                            <div class="toggle-btn enabled" id="particlesToggle"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Leaderboard Panel -->
+        <div class="modal-overlay" id="leaderboardOverlay">
+            <div class="leaderboard-panel" id="leaderboardPanel">
+                <div class="panel-header">
+                    <h2>🏆 TOP SCORES</h2>
+                    <button class="close-btn" id="leaderboardCloseBtn">✕</button>
+                </div>
+                <div class="leaderboard-content">
+                    <div id="leaderboardEntries"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- About Panel -->
+        <div class="modal-overlay" id="aboutOverlay">
+            <div class="about-panel" id="aboutPanel">
+                <div class="panel-header">
+                    <h2>ℹ️ ABOUT</h2>
+                    <button class="close-btn" id="aboutCloseBtn">✕</button>
+                </div>
+                <div class="about-content">
+                    <div class="about-section">
+                        <h3>FLAPPY BIRD ULTIMATE</h3>
+                        <p>An enhanced classic arcade game with modern features, progression systems, and endless fun!</p>
+                    </div>
+
+                    <div class="about-section">
+                        <h3>HOW TO PLAY</h3>
+                        <ul>
+                            <li>✓ Tap or click to make your bird flap and fly</li>
+                            <li>✓ Avoid flying into the pipes</li>
+                            <li>✓ Pass through pipe gaps to earn points</li>
+                            <li>✓ Collect power-ups for special abilities</li>
+                        </ul>
+                    </div>
+
+                    <div class="about-section">
+                        <h3>FEATURES</h3>
+                        <ul>
+                            <li>✓ 11 Unique bird characters</li>
+                            <li>✓ 5 Difficulty levels (Very Easy to Extreme)</li>
+                            <li>✓ 7 Power-ups with special abilities</li>
+                            <li>✓ Dynamic difficulty scaling</li>
+                            <li>✓ Leaderboard tracking & rankings</li>
+                            <li>✓ Combo system with multipliers</li>
+                            <li>✓ Custom audio controls</li>
+                            <li>✓ Particle effects & screen shake</li>
+                            <li>✓ Score floaters & visual feedback</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="about-section">
+                        <h3>POWER-UPS</h3>
+                        <ul>
+                            <li>🛡 Shield - Protects from one collision</li>
+                            <li>⏱ Slow Motion - Slows down everything</li>
+                            <li>🧲 Magnet - Attracts coins</li>
+                            <li>2x Double Points - Doubles score</li>
+                            <li>👻 Ghost - Phase through pipes</li>
+                            <li>⚡ Speed Boost - Move faster</li>
+                            <li>💰 Coins - Collect for rewards</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Game Over Screen -->
+        <div class="menu-overlay" id="gameOverScreen" style="display: none;">
+            <div class="menu-content game-over-content">
+                <h1 class="game-over-title">GAME OVER</h1>
+                
+                <!-- Rank Display -->
+                <div class="rank-display" id="rankDisplay">
+                    <div class="rank-icon" id="rankIcon">🏆</div>
+                    <div class="rank-name" id="rankName">Rookie</div>
+                    <div class="rank-progress-bar">
+                        <div class="rank-progress-fill" id="rankProgress" style="width: 0%"></div>
+                    </div>
+                </div>
+                
+                <div class="game-over-stats">
+                    <div class="stat-item">
+                        <div class="stat-label">FINAL SCORE</div>
+                        <div class="stat-value" id="finalScore">0</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">HIGH SCORE</div>
+                        <div class="stat-value" id="gameOverHighScore">0</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">COINS</div>
+                        <div class="stat-value" id="coinsCollected">0</div>
+                    </div>
+                </div>
+                <div class="game-over-buttons">
+                    <button class="button button-primary" id="retryBtn">TRY AGAIN</button>
+                    <button class="button button-secondary" id="watchAdBtn">📺 WATCH AD +50 COINS</button>
+                    <button class="button button-secondary" id="menuBtn">MAIN MENU</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Game Scripts -->
+    <script src="audio.js"></script>
+    <script src="admob.js"></script>
+    <script src="game.js"></script>
+</body>
+</html>
