@@ -84,6 +84,7 @@
                 <!-- Menu Options Row -->
                 <div class="menu-section menu-options">
                     <button class="button button-secondary" id="leaderboardBtn">🏆 LEADERBOARD</button>
+                    <button class="button button-secondary" id="achievementsBtn">🎖️ ACHIEVEMENTS</button>
                     <button class="button button-secondary" id="settingsBtn">⚙️ SETTINGS</button>
                     <button class="button button-secondary" id="aboutBtn">ℹ️ ABOUT</button>
                 </div>
@@ -164,6 +165,19 @@
                 </div>
                 <div class="leaderboard-content">
                     <div id="leaderboardEntries"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Achievements Panel -->
+        <div class="modal-overlay" id="achievementsOverlay">
+            <div class="achievements-panel" id="achievementsPanel">
+                <div class="panel-header">
+                    <h2>🎖️ ACHIEVEMENTS</h2>
+                    <button class="close-btn" id="achievementsCloseBtn">✕</button>
+                </div>
+                <div class="achievements-content">
+                    <div id="achievementsEntries"></div>
                 </div>
             </div>
         </div>
@@ -252,7 +266,6 @@
                 </div>
                 <div class="game-over-buttons">
                     <button class="button button-primary" id="retryBtn">TRY AGAIN</button>
-                    <button class="button button-secondary" id="watchAdBtn">📺 WATCH AD +50 COINS</button>
                     <button class="button button-secondary" id="menuBtn">MAIN MENU</button>
                 </div>
             </div>
@@ -261,7 +274,6 @@
 
     <!-- Game Scripts -->
     <script src="audio.js"></script>
-    <script src="admob.js"></script>
     <script src="game.js"></script>
 </body>
 </html>

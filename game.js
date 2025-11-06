@@ -145,16 +145,25 @@ class Pipe {
     }
 
     draw(ctx, canvasHeight) {
-        ctx.fillStyle = '#4CAF50';
+        // Color varies by difficulty - red pipes for harder
+        let pipeColor = '#4CAF50';
+        let pipeHighlight = '#2E7D32';
         
-        // Top pipe
+        if (this.x % 200 === 0) {
+            pipeColor = '#FF6B6B'; // Danger pipe (harder)
+            pipeHighlight = '#CC5555';
+        }
+        
+        ctx.fillStyle = pipeColor;
+        
+        // Top pipe with animation
         ctx.fillRect(this.x, 0, this.width, this.gap);
         
         // Bottom pipe
         ctx.fillRect(this.x, this.gap + this.gapSize, this.width, canvasHeight - this.gap - this.gapSize);
 
         // Pipe decoration - gradient effect
-        ctx.fillStyle = '#2E7D32';
+        ctx.fillStyle = pipeHighlight;
         ctx.fillRect(this.x - 2, this.gap - 10, this.width + 4, 10);
         ctx.fillRect(this.x - 2, this.gap + this.gapSize, this.width + 4, 10);
         
@@ -165,7 +174,7 @@ class Pipe {
     }
 
     isOffScreen() {
-        return this.x + this.width < 0;
+        return this.x + this.width < -10;
     }
 
     collidesWith(bird) {
@@ -205,6 +214,8 @@ class Game {
         this.difficulty = 'normal';
         this.frameCount = 0;
         this.audioManager = new AudioManager();
+        this.comboMultiplier = 1;
+        this.consecutiveScores = 0;
         
         // Statistics tracking
         this.sessionStats = {
@@ -217,6 +228,19 @@ class Game {
             pipesAvoided: 0
         };
         this.loadStats();
+        
+        // Achievement system
+        this.achievements = {
+            firstFlight: { name: 'First Flight', desc: 'Play your first game', unlocked: false, icon: '🐦' },
+            ninetyNine: { name: 'Perfection', desc: 'Reach 99 points', unlocked: false, icon: '🌟' },
+            comboKing: { name: 'Combo King', desc: 'Reach 10 consecutive pipes', unlocked: false, icon: '👑' },
+            collector: { name: 'Collector', desc: 'Collect 50 coins', unlocked: false, icon: '💰' },
+            legend: { name: 'Legend', desc: 'Reach 500 points', unlocked: false, icon: '✨' },
+            speedster: { name: 'Speedster', desc: 'Complete 5 games on hard difficulty', unlocked: false, icon: '⚡' },
+            survivor: { name: 'Survivor', desc: 'Use 3 shield power-ups in one game', unlocked: false, icon: '🛡' },
+            ghost: { name: 'Ghost Master', desc: 'Use ghost mode 5 times', unlocked: false, icon: '👻' }
+        };
+        this.loadAchievements();
         
         // Rank system
         this.ranks = [
@@ -252,6 +276,9 @@ class Game {
         this.screenShakeIntensity = 0;
         this.scoreFloaters = [];
         this.pipesMissed = 0;
+        this.particlesEnabled = true;
+        this.menuInitialized = false;
+        this.difficultyProgressionEnabled = false; // Set to true to enable dynamic difficulty
 
         this.gameState = 'menu'; // menu, playing, paused, gameover
         
@@ -269,7 +296,7 @@ class Game {
     }
 
     handleInput() {
-        if (this.gameState === 'playing') {
+        if (this.gameState === 'playing' && !this.gamePaused) {
             this.bird.flap();
             this.audioManager.playFlapSound();
         }
@@ -278,7 +305,7 @@ class Game {
     handleKeyInput(e) {
         if (e.code === 'Space') {
             e.preventDefault();
-            if (this.gameState === 'playing') {
+            if (this.gameState === 'playing' && !this.gamePaused) {
                 this.bird.flap();
                 this.audioManager.playFlapSound();
             }
@@ -289,6 +316,10 @@ class Game {
     }
 
     initMenu() {
+        // Only initialize once
+        if (this.menuInitialized) return;
+        this.menuInitialized = true;
+        
         this.populateCharacterSelect();
         this.populateDifficultySelect();
         this.updateLeaderboard();
@@ -308,6 +339,13 @@ class Game {
             this.audioManager.playButtonClickSound();
             this.showLeaderboard();
         });
+        const achievementsBtn = document.getElementById('achievementsBtn');
+        if (achievementsBtn) {
+            achievementsBtn.addEventListener('click', () => {
+                this.audioManager.playButtonClickSound();
+                this.showAchievements();
+            });
+        }
         document.getElementById('aboutBtn').addEventListener('click', () => {
             this.audioManager.playButtonClickSound();
             this.showAbout();
@@ -330,17 +368,9 @@ class Game {
             this.audioManager.playButtonClickSound();
             this.startGame();
         });
-        document.getElementById('watchAdBtn').addEventListener('click', () => {
-            this.audioManager.playButtonClickSound();
-            this.showRewardedAd();
-        });
         document.getElementById('menuBtn').addEventListener('click', () => {
             this.audioManager.playButtonClickSound();
             this.goToMenu();
-        });
-        document.getElementById('watchAdBtn').addEventListener('click', () => {
-            this.audioManager.playButtonClickSound();
-            this.showRewardedAd();
         });
 
         // Settings
@@ -371,9 +401,18 @@ class Game {
             this.audioManager.toggleMusic(e.currentTarget.classList.contains('enabled'));
         });
 
+        document.getElementById('particlesToggle').addEventListener('click', (e) => {
+            e.currentTarget.classList.toggle('enabled');
+            this.particlesEnabled = e.currentTarget.classList.contains('enabled');
+        });
+
         document.getElementById('leaderboardCloseBtn').addEventListener('click', () => {
             this.audioManager.playButtonClickSound();
             this.hideLeaderboard();
+        });
+        document.getElementById('achievementsCloseBtn').addEventListener('click', () => {
+            this.audioManager.playButtonClickSound();
+            this.hideAchievements();
         });
         document.getElementById('aboutCloseBtn').addEventListener('click', () => {
             this.audioManager.playButtonClickSound();
@@ -389,6 +428,11 @@ class Game {
         document.getElementById('leaderboardOverlay').addEventListener('click', (e) => {
             if (e.target.id === 'leaderboardOverlay') {
                 this.hideLeaderboard();
+            }
+        });
+        document.getElementById('achievementsOverlay').addEventListener('click', (e) => {
+            if (e.target.id === 'achievementsOverlay') {
+                this.hideAchievements();
             }
         });
         document.getElementById('aboutOverlay').addEventListener('click', (e) => {
@@ -475,6 +519,102 @@ class Game {
         localStorage.setItem('flybird_stats', JSON.stringify(this.sessionStats));
     }
 
+    loadAchievements() {
+        const saved = localStorage.getItem('flybird_achievements');
+        if (saved) {
+            this.achievements = { ...this.achievements, ...JSON.parse(saved) };
+        }
+    }
+
+    saveAchievements() {
+        localStorage.setItem('flybird_achievements', JSON.stringify(this.achievements));
+    }
+
+    checkAchievements() {
+        // First Flight
+        if (this.sessionStats.gamesPlayed === 1 && !this.achievements.firstFlight.unlocked) {
+            this.achievements.firstFlight.unlocked = true;
+            this.showAchievementUnlocked('firstFlight');
+        }
+
+        // Perfection (99 points)
+        if (this.score >= 99 && !this.achievements.ninetyNine.unlocked) {
+            this.achievements.ninetyNine.unlocked = true;
+            this.showAchievementUnlocked('ninetyNine');
+        }
+
+        // Combo King (10 consecutive pipes)
+        if (this.consecutiveScores >= 10 && !this.achievements.comboKing.unlocked) {
+            this.achievements.comboKing.unlocked = true;
+            this.showAchievementUnlocked('comboKing');
+        }
+
+        // Collector (50 coins)
+        if (this.coins >= 50 && !this.achievements.collector.unlocked) {
+            this.achievements.collector.unlocked = true;
+            this.showAchievementUnlocked('collector');
+        }
+
+        // Legend (500 points)
+        if (this.score >= 500 && !this.achievements.legend.unlocked) {
+            this.achievements.legend.unlocked = true;
+            this.showAchievementUnlocked('legend');
+        }
+
+        // Speedster (5 hard games)
+        if (this.difficulty === 'hard' || this.difficulty === 'extreme') {
+            const hardGames = localStorage.getItem('flybird_hard_games') || '0';
+            const count = parseInt(hardGames) + 1;
+            localStorage.setItem('flybird_hard_games', count.toString());
+            if (count >= 5 && !this.achievements.speedster.unlocked) {
+                this.achievements.speedster.unlocked = true;
+                this.showAchievementUnlocked('speedster');
+            }
+        }
+
+        this.saveAchievements();
+    }
+
+    showAchievementUnlocked(achievementKey) {
+        const achievement = this.achievements[achievementKey];
+        if (!achievement) return;
+
+        const notification = document.createElement('div');
+        notification.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, #FFD700, #FFA500);
+            color: #000;
+            padding: 15px 20px;
+            border-radius: 10px;
+            font-weight: bold;
+            z-index: 9999;
+            animation: slideInRight 0.5s ease-out, slideOutRight 0.5s ease-out 3.5s forwards;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        `;
+        notification.innerHTML = `
+            <div style="font-size: 14px;">🏆 ACHIEVEMENT UNLOCKED!</div>
+            <div style="font-size: 16px; margin-top: 5px;">${achievement.icon} ${achievement.name}</div>
+            <div style="font-size: 12px; color: rgba(0,0,0,0.7); margin-top: 3px;">${achievement.desc}</div>
+        `;
+        document.body.appendChild(notification);
+
+        setTimeout(() => notification.remove(), 4000);
+    }
+
+    updateDifficulty() {
+        if (!this.difficultyProgressionEnabled) return;
+
+        // Increase difficulty based on score
+        if (this.score >= 200 && this.difficultySettings.gapSize > 100) {
+            this.difficultySettings.gapSize = Math.max(100, 180 - (this.score / 50));
+        }
+        if (this.score >= 100 && this.difficultySettings.spawnRate > 100) {
+            this.difficultySettings.spawnRate = Math.max(100, 160 - (this.score / 100));
+        }
+    }
+
     startGame() {
         this.bird = new Bird(this.bird.character);
         this.pipes = [];
@@ -494,12 +634,27 @@ class Game {
         this.sessionStats.gamesPlayed++;
         this.screenShake = 0;
 
-        document.getElementById('mainMenu').style.display = 'none';
-        document.getElementById('gameOverScreen').style.display = 'none';
-        document.getElementById('pauseMenuOverlay').classList.remove('active');
-        document.getElementById('leaderboardOverlay').classList.remove('active');
-        document.getElementById('settingsOverlay').classList.remove('active');
-        document.getElementById('aboutOverlay').classList.remove('active');
+        // Hide all overlays
+        const overlays = [
+            'mainMenu',
+            'gameOverScreen',
+            'pauseMenuOverlay',
+            'leaderboardOverlay',
+            'settingsOverlay',
+            'achievementsOverlay',
+            'aboutOverlay'
+        ];
+        
+        overlays.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                if (id === 'mainMenu' || id === 'gameOverScreen') {
+                    el.style.display = 'none';
+                } else {
+                    el.classList.remove('active');
+                }
+            }
+        });
     }
 
     togglePause() {
@@ -526,30 +681,8 @@ class Game {
         this.updateMenuRankDisplay();
     }
     
-    showRewardedAd() {
-        if (typeof adMobManager !== 'undefined') {
-            const previousCoins = this.coins;
-            adMobManager.showRewardedAd(() => {
-                // Reward callback: Add 50 coins
-                this.coins += 50;
-                this.sessionStats.totalCoins += 50;
-                this.saveStats();
-                
-                // Update UI
-                document.getElementById('coinsCollected').textContent = this.coins;
-                this.createScoreFloater(this.canvas.width / 2, 100, '+50 💰');
-                this.audioManager.playCoinCollectSound();
-                
-                console.log('Rewarded: +50 coins');
-            });
-        } else {
-            // Fallback if AdMob not available
-            this.coins += 50;
-            this.sessionStats.totalCoins += 50;
-            this.saveStats();
-            document.getElementById('coinsCollected').textContent = this.coins;
-        }
-    }
+    // Rewarded ads removed
+    
 
     updateMenuRankDisplay() {
         const highScoreRank = this.getHighScoreRank();
@@ -581,6 +714,54 @@ class Game {
 
     hideAbout() {
         document.getElementById('aboutOverlay').classList.remove('active');
+    }
+
+    showAchievements() {
+        this.updateAchievementsDisplay();
+        document.getElementById('achievementsOverlay').classList.add('active');
+    }
+
+    hideAchievements() {
+        document.getElementById('achievementsOverlay').classList.remove('active');
+    }
+
+    updateAchievementsDisplay() {
+        const container = document.getElementById('achievementsEntries');
+        container.innerHTML = '';
+
+        const achievementKeys = Object.keys(this.achievements);
+        if (achievementKeys.length === 0) {
+            const noAchievements = document.createElement('div');
+            noAchievements.style.cssText = 'text-align: center; padding: 20px; color: #aaa;';
+            noAchievements.textContent = 'No achievements yet. Keep playing!';
+            container.appendChild(noAchievements);
+            return;
+        }
+
+        achievementKeys.forEach((key) => {
+            const achievement = this.achievements[key];
+            const entry = document.createElement('div');
+            entry.className = 'achievement-entry';
+            entry.style.cssText = `
+                padding: 12px;
+                margin: 8px 0;
+                background: ${achievement.unlocked ? 'rgba(255, 215, 0, 0.15)' : 'rgba(100, 100, 100, 0.15)'};
+                border: 2px solid ${achievement.unlocked ? '#FFD700' : '#666'};
+                border-radius: 8px;
+                opacity: ${achievement.unlocked ? '1' : '0.6'};
+            `;
+            entry.innerHTML = `
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <div style="font-size: 28px;">${achievement.icon}</div>
+                    <div style="flex: 1;">
+                        <div style="font-weight: bold; font-size: 14px; color: #fff;">${achievement.name}</div>
+                        <div style="font-size: 12px; color: #aaa;">${achievement.desc}</div>
+                    </div>
+                    <div style="font-size: 20px;">${achievement.unlocked ? '✓' : '🔒'}</div>
+                </div>
+            `;
+            container.appendChild(entry);
+        });
     }
 
     updateLeaderboard() {
@@ -622,13 +803,45 @@ class Game {
 
         this.frameCount++;
         
+        // Cap particles count to prevent memory leak
+        if (this.particles.length > 500) {
+            this.particles.splice(0, 100);
+        }
+        
+        // Cap power-ups count
+        if (this.powerUps && this.powerUps.length > 100) {
+            this.powerUps.splice(0, 10);
+        }
+        
+        // Cap score floaters
+        if (this.scoreFloaters.length > 100) {
+            this.scoreFloaters.splice(0, 10);
+        }
+        
         // Update screen shake
         if (this.screenShake > 0) {
             this.screenShake--;
         }
 
-        // Update bird
+        // Update bird with trail effect
         this.bird.update();
+        
+        // Add bird trail particles
+        if (this.particlesEnabled && this.frameCount % 3 === 0) {
+            const colorData = this.bird.characterColors[this.bird.character];
+            const trailColor = colorData?.body || '#FFD700';
+            this.particles.push(new Particle(
+                this.bird.x - 10,
+                this.bird.y,
+                -1,
+                0,
+                trailColor,
+                15
+            ));
+        }
+        
+        // Update difficulty progression
+        this.updateDifficulty();
         
         // Update score floaters
         for (let i = this.scoreFloaters.length - 1; i >= 0; i--) {
@@ -679,15 +892,17 @@ class Game {
                     delete this.activePowerUps.shield;
                     this.createExplosionParticles(this.bird.x, this.bird.y);
                     this.screenShake = 5;
+                    this.pipes[i].passed = true; // Mark as passed to avoid re-collision
                 } else if (this.activePowerUps.ghost) {
                     this.activePowerUps.ghost.uses--;
                     if (this.activePowerUps.ghost.uses <= 0) {
                         delete this.activePowerUps.ghost;
                     }
+                    this.pipes[i].passed = true; // Mark as passed to avoid re-collision
                 }
             }
 
-            // Check score
+            // Check score - pipes passed completely
             if (!this.pipes[i].passed && this.pipes[i].x + this.pipes[i].width < this.bird.x) {
                 this.pipes[i].passed = true;
                 this.pipesMissed++;
@@ -781,6 +996,7 @@ class Game {
     }
 
     createScoreParticles(x, y) {
+        if (!this.particlesEnabled) return;
         for (let i = 0; i < 8; i++) {
             const angle = (Math.PI * 2 * i) / 8;
             const speed = 3;
@@ -795,6 +1011,7 @@ class Game {
     }
 
     createComboBonusParticles() {
+        if (!this.particlesEnabled) return;
         for (let i = 0; i < 25; i++) {
             const angle = Math.random() * Math.PI * 2;
             const speed = 2 + Math.random() * 3;
@@ -809,6 +1026,7 @@ class Game {
     }
 
     createExplosionParticles(x, y) {
+        if (!this.particlesEnabled) return;
         for (let i = 0; i < 20; i++) {
             const angle = Math.random() * Math.PI * 2;
             const speed = 2 + Math.random() * 4;
@@ -824,10 +1042,12 @@ class Game {
 
     draw() {
         // Apply screen shake
+        let hasShake = false;
         if (this.screenShake > 0) {
             const offsetX = (Math.random() - 0.5) * this.screenShakeIntensity;
             const offsetY = (Math.random() - 0.5) * this.screenShakeIntensity;
             this.ctx.translate(offsetX, offsetY);
+            hasShake = true;
         }
         
         // Clear canvas
@@ -842,6 +1062,10 @@ class Game {
         this.drawClouds();
 
         if (this.gameState === 'menu') {
+            // Restore translation if shake was applied
+            if (hasShake) {
+                this.ctx.setTransform(1, 0, 0, 1, 0, 0);
+            }
             return;
         }
 
@@ -856,6 +1080,18 @@ class Game {
                 const pu = this.powerUps[i];
                 pu.x -= pu.speed;
                 pu.rotation = (pu.rotation + 0.05) % (Math.PI * 2);
+
+                // Magnet attraction logic
+                if (this.activePowerUps.magnet && pu.type === 'coin') {
+                    const dx = this.bird.x - pu.x;
+                    const dy = this.bird.y - pu.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    if (distance < 150) {
+                        const attractForce = 2;
+                        pu.x += (dx / distance) * attractForce;
+                        pu.y += (dy / distance) * attractForce;
+                    }
+                }
 
                 // Check collision with bird
                 if (Math.abs(pu.x - this.bird.x) < 30 && Math.abs(pu.y - this.bird.y) < 30) {
@@ -911,7 +1147,7 @@ class Game {
                 this.ctx.restore();
 
                 // Remove if off-screen
-                if (pu.x + pu.width < 0) {
+                if (pu.x + pu.width < -10) {
                     this.powerUps.splice(i, 1);
                 }
             }
@@ -936,23 +1172,63 @@ class Game {
         // Draw bird
         this.bird.draw(this.ctx);
 
-        // Update UI
-        document.getElementById('scoreValue').textContent = this.score;
-        document.getElementById('highScoreValue').textContent = this.highScore;
-        document.getElementById('comboValue').textContent = 'x' + this.comboMultiplier.toFixed(1);
-        document.getElementById('coinsValue').textContent = this.coins;
-        document.getElementById('difficultyIndicator').textContent = this.difficultySettings.name.toUpperCase();
+        // Restore transform if screen shake was applied
+        if (hasShake) {
+            this.ctx.setTransform(1, 0, 0, 1, 0, 0);
+        }
 
-        // Draw active power-ups indicator
-        const display = document.getElementById('powerUpsDisplay');
-        display.innerHTML = '';
-        for (let key in this.activePowerUps) {
-            const pu = this.activePowerUps[key];
-            const icons = { shield: '🛡', slowMotion: '⏱', magnet: '🧲', doublePoints: '2x', ghost: '👻', speedBoost: '⚡', coin: '💰' };
-            const indicator = document.createElement('div');
-            indicator.className = 'power-up-indicator';
-            indicator.textContent = `${icons[key]} ${Math.ceil(pu.duration / 10)}s`;
-            display.appendChild(indicator);
+        // Update UI elements
+        this.updateUIDisplay();
+    }
+
+    updateUIDisplay() {
+        // Only update if elements exist
+        try {
+            const scoreValue = document.getElementById('scoreValue');
+            const highScore = document.getElementById('highScoreValue');
+            const comboValue = document.getElementById('comboValue');
+            const coinsValue = document.getElementById('coinsValue');
+            const difficultyInd = document.getElementById('difficultyIndicator');
+            const display = document.getElementById('powerUpsDisplay');
+
+            if (!scoreValue || !highScore || !comboValue || !coinsValue || !difficultyInd || !display) {
+                return;
+            }
+
+            // Update only if values have changed
+            if (scoreValue.textContent !== this.score.toString()) {
+                scoreValue.textContent = this.score;
+            }
+            if (highScore.textContent !== this.highScore.toString()) {
+                highScore.textContent = this.highScore;
+            }
+            const comboText = 'x' + this.comboMultiplier.toFixed(1);
+            if (comboValue.textContent !== comboText) {
+                comboValue.textContent = comboText;
+            }
+            if (coinsValue.textContent !== this.coins.toString()) {
+                coinsValue.textContent = this.coins;
+            }
+            const diffText = this.difficultySettings.name.toUpperCase();
+            if (difficultyInd.textContent !== diffText) {
+                difficultyInd.textContent = diffText;
+            }
+
+            // Update power-ups display
+            const powerUpKeys = Object.keys(this.activePowerUps);
+            if (display.children.length !== powerUpKeys.length) {
+                display.innerHTML = '';
+                for (let key of powerUpKeys) {
+                    const pu = this.activePowerUps[key];
+                    const icons = { shield: '🛡', slowMotion: '⏱', magnet: '🧲', doublePoints: '2x', ghost: '👻', speedBoost: '⚡', coin: '💰' };
+                    const indicator = document.createElement('div');
+                    indicator.className = 'power-up-indicator';
+                    indicator.textContent = `${icons[key]} ${Math.ceil(pu.duration / 10)}s`;
+                    display.appendChild(indicator);
+                }
+            }
+        } catch (e) {
+            // Silent fail - DOM elements may not exist in some contexts
         }
     }
 
@@ -1136,6 +1412,7 @@ class Game {
     }
 
     createPowerUpParticles(x, y) {
+        if (!this.particlesEnabled) return;
         for (let i = 0; i < 16; i++) {
             const angle = (Math.PI * 2 * i) / 16;
             const speed = 3.5;
@@ -1159,14 +1436,10 @@ class Game {
         // Create explosion particles on game over
         this.createExplosionParticles(this.bird.x, this.bird.y);
 
-        // Show interstitial ad after every 2-3 games
-        if (typeof adMobManager !== 'undefined' && Math.random() < 0.4) {
-            setTimeout(() => {
-                adMobManager.showInterstitialAd();
-            }, 500);
-        }
-
-        // Save high score
+        // Show game over screen with animation
+        const gameOverScreen = document.getElementById('gameOverScreen');
+        gameOverScreen.style.display = 'flex';
+        gameOverScreen.style.animation = 'fadeInScale 0.5s ease-out';
         if (this.score > this.highScore) {
             this.highScore = this.score;
             this.saveHighScore();
@@ -1188,11 +1461,9 @@ class Game {
         this.sessionStats.totalScore += this.score;
         this.sessionStats.totalCoins += this.coins;
         this.saveStats();
-
-        // Show game over screen with animation
-        const gameOverScreen = document.getElementById('gameOverScreen');
-        gameOverScreen.style.display = 'flex';
-        gameOverScreen.style.animation = 'fadeInScale 0.5s ease-out';
+        
+        // Check achievements
+        this.checkAchievements();
         
         // Update game over stats
         document.getElementById('finalScore').textContent = this.score;
