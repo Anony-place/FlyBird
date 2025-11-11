@@ -9,7 +9,8 @@ A modern, feature-rich version of the classic Flappy Bird game built with HTML5 
 - Progressive Ranking System
 - Responsive Design
 
-
+PLAY now 
+https://flybird-bwo.pages.dev
 
 ## Technologies
 - HTML5 Canvas
