@@ -1,0 +1,3 @@
+## 2025-05-15 - [Accessibility and Keyboard Navigation]
+**Learning:** Converting non-semantic interactive elements (like `div` based toggles) to proper `<button>` elements significantly improves accessibility but requires careful CSS resets to avoid visual regressions caused by default browser styles. Non-interactive elements should NEVER be converted to buttons as it misleads screen reader users.
+**Action:** Always use `<button>` for interactive elements and ensure `padding`, `background`, `border`, and `font` are explicitly defined to override browser defaults. Verify that only truly interactive elements are converted.

@@ -85,7 +85,7 @@ class Bird {
         ctx.beginPath();
         ctx.ellipse(0, 0, this.width / 2, this.height / 2, 0, 0, Math.PI * 2);
         ctx.fill();
-        
+
         // Body shading for 3D effect
         ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
         ctx.beginPath();
@@ -102,7 +102,7 @@ class Bird {
         ctx.beginPath();
         ctx.arc(9, -5, 3, 0, Math.PI * 2);
         ctx.fill();
-        
+
         // Eye shine for life
         ctx.fillStyle = '#fff';
         ctx.beginPath();
@@ -115,7 +115,7 @@ class Bird {
         ctx.beginPath();
         ctx.ellipse(-8, 0, 8, 12, -0.3 + wingRotation, 0, Math.PI * 2);
         ctx.fill();
-        
+
         // Wing highlight
         ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
         ctx.beginPath();
@@ -148,17 +148,17 @@ class Pipe {
         // Color varies by difficulty - red pipes for harder
         let pipeColor = '#4CAF50';
         let pipeHighlight = '#2E7D32';
-        
+
         if (this.x % 200 === 0) {
             pipeColor = '#FF6B6B'; // Danger pipe (harder)
             pipeHighlight = '#CC5555';
         }
-        
+
         ctx.fillStyle = pipeColor;
-        
+
         // Top pipe with animation
         ctx.fillRect(this.x, 0, this.width, this.gap);
-        
+
         // Bottom pipe
         ctx.fillRect(this.x, this.gap + this.gapSize, this.width, canvasHeight - this.gap - this.gapSize);
 
@@ -166,7 +166,7 @@ class Pipe {
         ctx.fillStyle = pipeHighlight;
         ctx.fillRect(this.x - 2, this.gap - 10, this.width + 4, 10);
         ctx.fillRect(this.x - 2, this.gap + this.gapSize, this.width + 4, 10);
-        
+
         // Pipe shine/highlight for 3D effect
         ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
         ctx.fillRect(this.x + 2, 0, 3, this.gap);
@@ -201,7 +201,7 @@ class Game {
         this.canvas = canvas;
         this.ctx = canvas.getContext('2d');
         this.setCanvasSize();
-        
+
         this.bird = new Bird('classic');
         this.pipes = [];
         this.particles = [];
@@ -216,7 +216,7 @@ class Game {
         this.audioManager = new AudioManager();
         this.comboMultiplier = 1;
         this.consecutiveScores = 0;
-        
+
         // Statistics tracking
         this.sessionStats = {
             gamesPlayed: 0,
@@ -228,7 +228,7 @@ class Game {
             pipesAvoided: 0
         };
         this.loadStats();
-        
+
         // Achievement system
         this.achievements = {
             firstFlight: { name: 'First Flight', desc: 'Play your first game', unlocked: false, icon: '🐦' },
@@ -241,7 +241,7 @@ class Game {
             ghost: { name: 'Ghost Master', desc: 'Use ghost mode 5 times', unlocked: false, icon: '👻' }
         };
         this.loadAchievements();
-        
+
         // Rank system
         this.ranks = [
             { name: 'Rookie', minScore: 0, maxScore: 49, color: '#888888', icon: '🔰' },
@@ -252,7 +252,7 @@ class Game {
             { name: 'Master', minScore: 700, maxScore: 999, color: '#9C27B0', icon: '👑' },
             { name: 'Legend', minScore: 1000, maxScore: Infinity, color: '#FFD700', icon: '✨' }
         ];
-        
+
         // Power-ups
         this.activePowerUps = {};
         this.powerUpTypes = {
@@ -267,10 +267,10 @@ class Game {
 
         // Game speed multiplier (0.65 = 35% slower than original)
         this.gameSpeedMultiplier = 0.65;
-        
+
         // Difficulty settings with easier defaults
         this.difficultySettings = { id: 'easy', name: 'Easy', gapSize: 180, spawnRate: 160 };
-        
+
         // Visual effects
         this.screenShake = 0;
         this.screenShakeIntensity = 0;
@@ -281,7 +281,7 @@ class Game {
         this.difficultyProgressionEnabled = false; // Set to true to enable dynamic difficulty
 
         this.gameState = 'menu'; // menu, playing, paused, gameover
-        
+
         window.addEventListener('click', () => this.handleInput());
         window.addEventListener('keydown', (e) => this.handleKeyInput(e));
         window.addEventListener('touchstart', () => this.handleInput());
@@ -319,7 +319,7 @@ class Game {
         // Only initialize once
         if (this.menuInitialized) return;
         this.menuInitialized = true;
-        
+
         this.populateCharacterSelect();
         this.populateDifficultySelect();
         this.updateLeaderboard();
@@ -350,7 +350,7 @@ class Game {
             this.audioManager.playButtonClickSound();
             this.showAbout();
         });
-        
+
         document.getElementById('resumeBtn').addEventListener('click', () => {
             this.audioManager.playButtonClickSound();
             this.togglePause();
@@ -363,7 +363,7 @@ class Game {
             this.audioManager.playButtonClickSound();
             this.goToMenu();
         });
-        
+
         document.getElementById('retryBtn').addEventListener('click', () => {
             this.audioManager.playButtonClickSound();
             this.startGame();
@@ -392,18 +392,24 @@ class Game {
         });
 
         document.getElementById('sfxToggle').addEventListener('click', (e) => {
-            e.currentTarget.classList.toggle('enabled');
-            this.audioManager.toggleSound(e.currentTarget.classList.contains('enabled'));
+            const isEnabled = e.currentTarget.classList.toggle('enabled');
+            e.currentTarget.setAttribute('aria-pressed', isEnabled);
+
+            this.audioManager.toggleSound(isEnabled);
         });
 
         document.getElementById('musicToggle').addEventListener('click', (e) => {
-            e.currentTarget.classList.toggle('enabled');
-            this.audioManager.toggleMusic(e.currentTarget.classList.contains('enabled'));
+            const isEnabled = e.currentTarget.classList.toggle('enabled');
+            e.currentTarget.setAttribute('aria-pressed', isEnabled);
+
+            this.audioManager.toggleMusic(isEnabled);
         });
 
         document.getElementById('particlesToggle').addEventListener('click', (e) => {
-            e.currentTarget.classList.toggle('enabled');
-            this.particlesEnabled = e.currentTarget.classList.contains('enabled');
+            const isEnabled = e.currentTarget.classList.toggle('enabled');
+            e.currentTarget.setAttribute('aria-pressed', isEnabled);
+
+            this.particlesEnabled = isEnabled;
         });
 
         document.getElementById('leaderboardCloseBtn').addEventListener('click', () => {
@@ -466,10 +472,12 @@ class Game {
         container.innerHTML = '';
 
         characters.forEach(char => {
-            const btn = document.createElement('div');
+            const btn = document.createElement('button');
             btn.className = 'character-option';
             if (char.id === 'classic') btn.classList.add('selected');
             btn.textContent = char.name;
+
+            btn.setAttribute('aria-label', `Select ${char.name} character`);
             btn.addEventListener('click', () => {
                 document.querySelectorAll('.character-option').forEach(b => b.classList.remove('selected'));
                 btn.classList.add('selected');
@@ -507,14 +515,14 @@ class Game {
 
         this.difficultySettings = difficulties[1]; // Default to easy
     }
-    
+
     loadStats() {
         const saved = localStorage.getItem('flybird_stats');
         if (saved) {
             this.sessionStats = JSON.parse(saved);
         }
     }
-    
+
     saveStats() {
         localStorage.setItem('flybird_stats', JSON.stringify(this.sessionStats));
     }
@@ -644,7 +652,7 @@ class Game {
             'achievementsOverlay',
             'aboutOverlay'
         ];
-        
+
         overlays.forEach(id => {
             const el = document.getElementById(id);
             if (el) {
@@ -680,9 +688,9 @@ class Game {
         this.updateLeaderboard();
         this.updateMenuRankDisplay();
     }
-    
+
     // Rewarded ads removed
-    
+
 
     updateMenuRankDisplay() {
         const highScoreRank = this.getHighScoreRank();
@@ -782,13 +790,13 @@ class Game {
         scores.forEach((scoreData, index) => {
             const entry = document.createElement('div');
             entry.className = 'leaderboard-entry';
-            
+
             let medals = ['🥇', '🥈', '🥉'];
             let medal = index < 3 ? medals[index] : `#${index + 1}`;
-            
+
             const difficultyEmoji = { 'veryeasy': '😌', 'easy': '🎮', 'normal': '⚡', 'hard': '🔥', 'extreme': '💀' };
             const diffIcon = difficultyEmoji[scoreData.difficulty] || '🎮';
-            
+
             entry.innerHTML = `
                 <span class="leaderboard-rank">${medal}</span>
                 <span style="flex: 1; text-align: left; padding-left: 10px;"><strong>Player ${index + 1}</strong><br/><span style="font-size: 11px; color: #aaa;">${diffIcon} ${scoreData.difficulty || 'normal'}</span></span>
@@ -802,22 +810,22 @@ class Game {
         if (!this.gameRunning || this.gamePaused) return;
 
         this.frameCount++;
-        
+
         // Cap particles count to prevent memory leak
         if (this.particles.length > 500) {
             this.particles.splice(0, 100);
         }
-        
+
         // Cap power-ups count
         if (this.powerUps && this.powerUps.length > 100) {
             this.powerUps.splice(0, 10);
         }
-        
+
         // Cap score floaters
         if (this.scoreFloaters.length > 100) {
             this.scoreFloaters.splice(0, 10);
         }
-        
+
         // Update screen shake
         if (this.screenShake > 0) {
             this.screenShake--;
@@ -825,7 +833,7 @@ class Game {
 
         // Update bird with trail effect
         this.bird.update();
-        
+
         // Add bird trail particles
         if (this.particlesEnabled && this.frameCount % 3 === 0) {
             const colorData = this.bird.characterColors[this.bird.character];
@@ -839,10 +847,10 @@ class Game {
                 15
             ));
         }
-        
+
         // Update difficulty progression
         this.updateDifficulty();
-        
+
         // Update score floaters
         for (let i = this.scoreFloaters.length - 1; i >= 0; i--) {
             this.scoreFloaters[i].y -= 2;
@@ -915,7 +923,7 @@ class Game {
                 this.audioManager.playPointSound();
                 this.createScoreParticles(this.bird.x, this.bird.y);
                 this.createScoreFloater(this.bird.x, this.bird.y, `+${finalScore}`);
-                
+
                 // Bonus for high combos
                 if (this.consecutiveScores % 5 === 0 && this.consecutiveScores > 0) {
                     this.audioManager.playLevelUpSound();
@@ -923,7 +931,7 @@ class Game {
                     this.createComboBonusParticles();
                     this.createScoreFloater(this.canvas.width / 2, this.canvas.height / 2, `COMBO x${this.consecutiveScores}!`);
                 }
-                
+
                 // Track best combo
                 if (this.consecutiveScores > this.sessionStats.bestCombo) {
                     this.sessionStats.bestCombo = this.consecutiveScores;
@@ -957,7 +965,7 @@ class Game {
             this.spawnPowerUp();
         }
     }
-    
+
     createScoreFloater(x, y, text) {
         this.scoreFloaters.push({
             x: x,
@@ -1049,7 +1057,7 @@ class Game {
             this.ctx.translate(offsetX, offsetY);
             hasShake = true;
         }
-        
+
         // Clear canvas
         this.ctx.fillStyle = '#87CEEB';
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
@@ -1057,7 +1065,7 @@ class Game {
         // Draw background mountains and huts
         this.drawMountains();
         this.drawHuts();
-        
+
         // Draw background clouds
         this.drawClouds();
 
@@ -1114,19 +1122,19 @@ class Game {
                 this.ctx.save();
                 this.ctx.translate(pu.x, pu.y);
                 this.ctx.rotate(pu.rotation);
-                
+
                 // Glow effect
                 this.ctx.fillStyle = color + '40';
                 this.ctx.beginPath();
                 this.ctx.arc(0, 0, pu.width / 2 + 8, 0, Math.PI * 2);
                 this.ctx.fill();
-                
+
                 // Main circle
                 this.ctx.fillStyle = color;
                 this.ctx.beginPath();
                 this.ctx.arc(0, 0, pu.width / 2, 0, Math.PI * 2);
                 this.ctx.fill();
-                
+
                 // Draw border
                 this.ctx.strokeStyle = 'rgba(255,255,255,0.5)';
                 this.ctx.lineWidth = 2;
@@ -1143,7 +1151,7 @@ class Game {
                 if (symbols[pu.type]) {
                     this.ctx.fillText(symbols[pu.type], 0, 0);
                 }
-                
+
                 this.ctx.restore();
 
                 // Remove if off-screen
@@ -1157,7 +1165,7 @@ class Game {
         for (const particle of this.particles) {
             particle.draw(this.ctx);
         }
-        
+
         // Draw score floaters
         for (const floater of this.scoreFloaters) {
             this.ctx.globalAlpha = floater.alpha;
@@ -1235,7 +1243,7 @@ class Game {
     drawClouds() {
         this.ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
         const cloudOffset = (this.frameCount * 0.3) % this.canvas.width;
-        
+
         for (let i = 0; i < 3; i++) {
             const x = (cloudOffset + i * 200 - this.canvas.width) % (this.canvas.width + 100);
             const y = 50 + i * 60;
@@ -1250,7 +1258,7 @@ class Game {
         this.ctx.arc(x + size * 1.5, y, size * 0.8, 0, Math.PI * 2);
         this.ctx.arc(x + size * 3, y, size, 0, Math.PI * 2);
         this.ctx.fill();
-        
+
         // Cloud highlight (lighter top)
         this.ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
         this.ctx.beginPath();
@@ -1326,7 +1334,7 @@ class Game {
         // Hut body (rectangle) with gradient effect
         this.ctx.fillStyle = '#9B7653';
         this.ctx.fillRect(x - 22, y, 44, 25);
-        
+
         // Darker side for 3D effect
         this.ctx.fillStyle = '#7A5A3F';
         this.ctx.fillRect(x + 15, y, 7, 25);
@@ -1338,7 +1346,7 @@ class Game {
         this.ctx.lineTo(x, y - 18);
         this.ctx.lineTo(x + 27, y);
         this.ctx.fill();
-        
+
         // Roof ridge highlight
         this.ctx.strokeStyle = '#D4AF37';
         this.ctx.lineWidth = 1.5;
@@ -1351,7 +1359,7 @@ class Game {
         // Door
         this.ctx.fillStyle = '#654321';
         this.ctx.fillRect(x - 7, y + 12, 14, 13);
-        
+
         // Door knob
         this.ctx.fillStyle = '#FFD700';
         this.ctx.beginPath();
@@ -1371,7 +1379,7 @@ class Game {
         this.ctx.moveTo(x - 18, y + 10);
         this.ctx.lineTo(x - 10, y + 10);
         this.ctx.stroke();
-        
+
         // Window 2
         this.ctx.fillStyle = '#87CEEB';
         this.ctx.fillRect(x + 10, y + 6, 8, 8);
@@ -1388,7 +1396,7 @@ class Game {
 
     activatePowerUp(type) {
         const settings = this.powerUpTypes[type];
-        
+
         if (type === 'shield') {
             this.activePowerUps.shield = { duration: settings.duration };
             this.audioManager.playShieldActivateSound();
@@ -1432,7 +1440,7 @@ class Game {
 
         // Play game over sound
         this.audioManager.playGameOverSound();
-        
+
         // Create explosion particles on game over
         this.createExplosionParticles(this.bird.x, this.bird.y);
 
@@ -1443,7 +1451,7 @@ class Game {
         if (this.score > this.highScore) {
             this.highScore = this.score;
             this.saveHighScore();
-            
+
             // New high score animation
             setTimeout(() => {
                 const highScoreEl = document.getElementById('gameOverHighScore');
@@ -1456,20 +1464,20 @@ class Game {
 
         // Save to leaderboard
         this.saveScore(this.score);
-        
+
         // Update stats
         this.sessionStats.totalScore += this.score;
         this.sessionStats.totalCoins += this.coins;
         this.saveStats();
-        
+
         // Check achievements
         this.checkAchievements();
-        
+
         // Update game over stats
         document.getElementById('finalScore').textContent = this.score;
         document.getElementById('gameOverHighScore').textContent = this.highScore;
         document.getElementById('coinsCollected').textContent = this.coins;
-        
+
         // Update rank display
         const currentRank = this.getCurrentRank();
         const rankDisplay = document.getElementById('rankDisplay');
@@ -1479,7 +1487,7 @@ class Game {
         document.getElementById('rankProgress').style.width = this.getRankProgress() + '%';
         document.getElementById('rankProgress').style.backgroundColor = currentRank.color;
         rankDisplay.style.borderColor = currentRank.color;
-        
+
         // Animate stats appearance
         setTimeout(() => {
             document.querySelectorAll('.stat-value').forEach((el, index) => {
@@ -1505,13 +1513,13 @@ class Game {
 
     saveScore(score) {
         const scores = this.getTopScores();
-        scores.push({ 
-            score, 
+        scores.push({
+            score,
             character: this.bird.character,
             difficulty: this.difficulty,
             coins: this.coins,
             combo: this.sessionStats.bestCombo,
-            timestamp: new Date().toISOString() 
+            timestamp: new Date().toISOString()
         });
         localStorage.setItem('flappyBirdScores', JSON.stringify(scores.sort((a, b) => b.score - a.score).slice(0, 20)));
     }
@@ -1527,9 +1535,9 @@ class Game {
     getRankProgress() {
         const currentRank = this.getCurrentRank();
         const nextRank = this.ranks[this.ranks.indexOf(currentRank) + 1];
-        
+
         if (!nextRank) return 100; // Legend rank - 100% progress
-        
+
         const progress = ((this.score - currentRank.minScore) / (nextRank.minScore - currentRank.minScore)) * 100;
         return Math.min(progress, 100);
     }

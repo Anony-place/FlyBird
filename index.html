@@ -66,7 +66,7 @@
                     <h1 class="menu-title">🐦 FLAPPY BIRD</h1>
                     <p class="menu-subtitle">ULTIMATE</p>
                 </div>
-                <p class="menu-tagline">Tap to Fly • Avoid Pipes • Get Coins</p>
+                <p class="menu-tagline">Tap or Press Space to Fly • Avoid Pipes • Get Coins</p>
                 
                 <!-- Player Rank in Menu -->
                 <div class="menu-player-rank" id="menuPlayerRank">
@@ -118,7 +118,7 @@
             <div class="settings-panel" id="settingsPanel">
                 <div class="panel-header">
                     <h2>⚙️ SETTINGS</h2>
-                    <button class="close-btn" id="settingsCloseBtn">✕</button>
+                    <button class="close-btn" id="settingsCloseBtn" aria-label="Close settings">✕</button>
                 </div>
                 
                 <div class="settings-content">
@@ -127,21 +127,21 @@
                         <div class="setting-item">
                             <span class="setting-label">Master Volume</span>
                             <div class="setting-value">
-                                <input type="range" class="slider" id="masterVolume" min="0" max="100" value="70">
+                                <input type="range" class="slider" id="masterVolume" min="0" max="100" value="70" aria-label="Master Volume">
                                 <span class="volume-label" id="volumeValue">70%</span>
                             </div>
                         </div>
                         <div class="setting-item">
                             <span class="setting-label">Music Volume</span>
                             <div class="setting-value">
-                                <input type="range" class="slider" id="musicVolume" min="0" max="100" value="50">
+                                <input type="range" class="slider" id="musicVolume" min="0" max="100" value="50" aria-label="Music Volume">
                                 <span class="volume-label" id="musicVolumeValue">50%</span>
                             </div>
                         </div>
                         <div class="setting-item">
                             <span class="setting-label">SFX Volume</span>
                             <div class="setting-value">
-                                <input type="range" class="slider" id="sfxVolume" min="0" max="100" value="70">
+                                <input type="range" class="slider" id="sfxVolume" min="0" max="100" value="70" aria-label="SFX Volume">
                                 <span class="volume-label" id="sfxVolumeValue">70%</span>
                             </div>
                         </div>
@@ -151,15 +151,15 @@
                         <h3 class="group-title">TOGGLES</h3>
                         <div class="setting-item">
                             <span class="setting-label">Sound Effects</span>
-                            <div class="toggle-btn enabled" id="sfxToggle"></div>
+                            <button class="toggle-btn enabled" id="sfxToggle" aria-label="Toggle Sound Effects" aria-pressed="true"></button>
                         </div>
                         <div class="setting-item">
                             <span class="setting-label">Music</span>
-                            <div class="toggle-btn enabled" id="musicToggle"></div>
+                            <button class="toggle-btn enabled" id="musicToggle" aria-label="Toggle Music" aria-pressed="true"></button>
                         </div>
                         <div class="setting-item">
                             <span class="setting-label">Particle Effects</span>
-                            <div class="toggle-btn enabled" id="particlesToggle"></div>
+                            <button class="toggle-btn enabled" id="particlesToggle" aria-label="Toggle Particle Effects" aria-pressed="true"></button>
                         </div>
                     </div>
                 </div>
@@ -171,7 +171,7 @@
             <div class="leaderboard-panel" id="leaderboardPanel">
                 <div class="panel-header">
                     <h2>🏆 TOP SCORES</h2>
-                    <button class="close-btn" id="leaderboardCloseBtn">✕</button>
+                    <button class="close-btn" id="leaderboardCloseBtn" aria-label="Close leaderboard">✕</button>
                 </div>
                 <div class="leaderboard-content">
                     <div id="leaderboardEntries"></div>
@@ -184,7 +184,7 @@
             <div class="achievements-panel" id="achievementsPanel">
                 <div class="panel-header">
                     <h2>🎖️ ACHIEVEMENTS</h2>
-                    <button class="close-btn" id="achievementsCloseBtn">✕</button>
+                    <button class="close-btn" id="achievementsCloseBtn" aria-label="Close achievements">✕</button>
                 </div>
                 <div class="achievements-content">
                     <div id="achievementsEntries"></div>
@@ -197,7 +197,7 @@
             <div class="about-panel" id="aboutPanel">
                 <div class="panel-header">
                     <h2>ℹ️ ABOUT</h2>
-                    <button class="close-btn" id="aboutCloseBtn">✕</button>
+                    <button class="close-btn" id="aboutCloseBtn" aria-label="Close about">✕</button>
                 </div>
                 <div class="about-content">
                     <div class="about-section">
