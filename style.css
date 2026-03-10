@@ -22,32 +22,39 @@ body {
     align-items: center;
     min-height: 100vh;
     color: #fff;
-    padding: 10px;
+    padding: 0;
+    margin: 0;
     overflow: hidden;
 }
 
 .game-container {
     position: relative;
-    width: 100%;
-    max-width: 480px;
-    height: 100%;
-    max-height: 95vh;
+    width: 100vw;
+    height: 100vh;
     background: var(--bg-dark);
     overflow: hidden;
-    border-radius: 24px;
-    box-shadow: 0 30px 100px rgba(0, 0, 0, 0.9), 0 0 40px rgba(0, 242, 254, 0.1);
-    aspect-ratio: 9 / 16;
-    border: 1px solid rgba(0, 242, 254, 0.2);
     display: flex;
     flex-direction: column;
+    transition: filter 0.5s ease;
 }
 
-@media (max-aspect-ratio: 9/16) {
-    .game-container {
-        max-height: 100vh;
-        border-radius: 0;
-        border: none;
-    }
+.game-container.warp-active {
+    filter: saturate(1.8) contrast(1.2);
+}
+
+.game-container.warp-active::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: repeating-linear-gradient(90deg, transparent, transparent 50px, rgba(255,255,255,0.05) 51px, transparent 52px);
+    pointer-events: none;
+    z-index: 1;
+    animation: speedLines 0.2s linear infinite;
+}
+
+@keyframes speedLines {
+    from { transform: translateX(0); }
+    to { transform: translateX(-51px); }
 }
 
 #gameCanvas {
@@ -256,6 +263,29 @@ body {
     font-size: 24px;
     font-weight: 900;
     text-shadow: var(--text-glow);
+}
+
+.combo-meter-container {
+    position: absolute;
+    bottom: 120px;
+    left: 50%;
+    transform: translateX(-50%);
+    text-align: center;
+    pointer-events: none;
+}
+
+#comboMeter {
+    font-size: 48px;
+    font-weight: 900;
+    color: var(--primary-neon);
+    text-shadow: 0 0 20px var(--primary-neon);
+    opacity: 0;
+    transition: transform 0.1s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.3s;
+}
+
+#comboMeter.bump {
+    transform: scale(1.5);
+    opacity: 1;
 }
 
 .power-ups-display {
@@ -501,6 +531,43 @@ body {
 .zone-info { text-align: center; }
 .zone-label { font-size: 9px; color: rgba(255,255,255,0.5); font-weight: 700; }
 .zone-name { font-size: 18px; font-weight: 900; color: #fff; }
+
+.mode-selector {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+}
+
+.mode-label { font-size: 10px; font-weight: 900; color: var(--primary-neon); letter-spacing: 2px; }
+
+.mode-toggle {
+    display: flex;
+    background: rgba(255,255,255,0.05);
+    border-radius: 20px;
+    padding: 4px;
+    width: 240px;
+    border: 1px solid rgba(255,255,255,0.1);
+}
+
+.mode-option {
+    flex: 1;
+    padding: 8px;
+    text-align: center;
+    font-size: 11px;
+    font-weight: 900;
+    cursor: pointer;
+    border-radius: 16px;
+    transition: 0.3s;
+    color: rgba(255,255,255,0.5);
+}
+
+.mode-option.active {
+    background: var(--primary-neon);
+    color: #000;
+    box-shadow: 0 0 15px var(--primary-neon);
+}
 
 .quick-links {
     display: flex;

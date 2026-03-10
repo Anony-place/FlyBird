@@ -113,12 +113,12 @@ class AeroCraft {
 }
 
 class Pillar {
-    constructor(canvas, x, themeColor) {
+    constructor(canvas, x, themeColor, gap = 170) {
         this.canvas = canvas;
         this.ctx = canvas.getContext('2d');
         this.x = x;
         this.width = 65;
-        this.gap = 170;
+        this.gap = gap;
         this.top = Math.random() * (canvas.height - this.gap - 120) + 60;
         this.bottom = canvas.height - (this.top + this.gap);
         this.passed = false;
@@ -295,7 +295,7 @@ class Game {
         window.addEventListener('resize', () => this.resize());
 
         // --- ECOSYSTEM STATE ---
-        this.state = JSON.parse(localStorage.getItem('aeroDashState')) || {
+        const defaultState = {
             coins: 0,
             gems: 0,
             level: 1,
@@ -306,7 +306,8 @@ class Game {
             upgrades: {
                 shield: 1,
                 magnet: 1,
-                slowmo: 1
+                slowmo: 1,
+                luck: 1
             },
             stats: {
                 totalTime: 0,
@@ -317,6 +318,17 @@ class Game {
             lastLogin: Date.now(),
             dailyQuests: this.generateQuests()
         };
+
+        const savedState = JSON.parse(localStorage.getItem('aeroDashState'));
+        this.state = savedState ? { ...defaultState, ...savedState, upgrades: { ...defaultState.upgrades, ...(savedState.upgrades || {}) } } : defaultState;
+
+        // Daily Quest Refresh logic
+        const lastDate = new Date(this.state.lastLogin).toDateString();
+        const todayDate = new Date().toDateString();
+        if (lastDate !== todayDate) {
+            this.state.dailyQuests = this.generateQuests();
+            this.state.lastLogin = Date.now();
+        }
 
         this.characters = [
             { id: 'swift', name: 'Swift-X', color: '#00f2fe', emoji: '🚀', price: 0 },
@@ -343,6 +355,11 @@ class Game {
 
         this.score = 0;
         this.combo = 1;
+        this.gameMode = 'endless';
+        this.timeLeft = 60;
+        this.warpMode = false;
+        this.warpTimer = 0;
+        this.pointsToWarp = 30;
         this.gameState = 'START';
         this.lastTime = 0;
         this.shake = 0;
@@ -419,6 +436,16 @@ class Game {
         document.querySelector('.prev-zone').onclick = () => this.changeZone(-1);
         document.querySelector('.next-zone').onclick = () => this.changeZone(1);
 
+        // Mode Logic
+        document.querySelectorAll('.mode-option').forEach(opt => {
+            opt.onclick = () => {
+                document.querySelectorAll('.mode-option').forEach(o => o.classList.remove('active'));
+                opt.classList.add('active');
+                this.gameMode = opt.dataset.mode;
+                if (window.audioManager) window.audioManager.playSound('thrust');
+            };
+        });
+
         document.getElementById('highScoreValue').innerText = this.state.highScore;
         document.getElementById('gameOverHighScore').innerText = this.state.highScore;
     }
@@ -484,7 +511,8 @@ class Game {
         const upgrades = [
             { id: 'shield', name: 'Shield Duration', icon: '🛡️' },
             { id: 'magnet', name: 'Magnet Range', icon: '🧲' },
-            { id: 'slowmo', name: 'Slow-Mo Time', icon: '⏱️' }
+            { id: 'slowmo', name: 'Slow-Mo Time', icon: '⏱️' },
+            { id: 'luck', name: 'Luck Boost', icon: '🍀' }
         ];
         upgrades.forEach(u => {
             const level = this.state.upgrades[u.id];
@@ -560,6 +588,51 @@ class Game {
         document.getElementById('mainMenuBtn').addEventListener('click', () => this.showMenu());
         document.getElementById('reviveBtn').addEventListener('click', () => this.reviveWithAd());
 
+        // Monetization Buttons
+        document.querySelectorAll('.coin-pill .add-btn').forEach(btn => {
+            btn.onclick = (e) => {
+                e.stopPropagation();
+                if (window.CrazyGames && window.CrazyGames.SDK && window.CrazyGames.SDK.ad) {
+                    window.CrazyGames.SDK.ad.requestAd('rewarded', {
+                        adStarted: () => { if (window.audioManager) window.audioManager.mute(); },
+                        adFinished: () => {
+                            if (window.audioManager) window.audioManager.unmute();
+                            this.state.coins += 500;
+                            this.refreshLobby();
+                            if (window.audioManager) window.audioManager.playSound('score');
+                        },
+                        adError: () => { if (window.audioManager) window.audioManager.unmute(); }
+                    });
+                } else {
+                    // Fallback for local testing
+                    this.state.coins += 500;
+                    this.refreshLobby();
+                }
+            };
+        });
+
+        document.querySelectorAll('.gem-pill .add-btn').forEach(btn => {
+            btn.onclick = (e) => {
+                e.stopPropagation();
+                if (window.CrazyGames && window.CrazyGames.SDK && window.CrazyGames.SDK.ad) {
+                    window.CrazyGames.SDK.ad.requestAd('rewarded', {
+                        adStarted: () => { if (window.audioManager) window.audioManager.mute(); },
+                        adFinished: () => {
+                            if (window.audioManager) window.audioManager.unmute();
+                            this.state.gems += 50;
+                            this.refreshLobby();
+                            if (window.audioManager) window.audioManager.playSound('score');
+                        },
+                        adError: () => { if (window.audioManager) window.audioManager.unmute(); }
+                    });
+                } else {
+                    // Fallback for local testing
+                    this.state.gems += 50;
+                    this.refreshLobby();
+                }
+            };
+        });
+
         // Modals
         const setupModal = (btnId, overlayId, closeId) => {
             const btn = document.getElementById(btnId);
@@ -632,6 +705,10 @@ class Game {
         this.gameState = 'PLAYING';
         this.score = 0;
         this.combo = 1;
+        this.timeLeft = 60;
+        this.warpMode = false;
+        this.warpTimer = 0;
+        this.pointsToWarp = 30;
         this.pillars = [];
         this.coins = [];
         this.powerups = [];
@@ -657,12 +734,18 @@ class Game {
         this.gameState = 'PAUSED';
         document.getElementById('pauseMenuOverlay').classList.add('active');
         if (window.audioManager) window.audioManager.mute();
+        if (window.CrazyGames && window.CrazyGames.SDK && window.CrazyGames.SDK.game) {
+            window.CrazyGames.SDK.game.gameplayStop();
+        }
     }
 
     resumeGame() {
         this.gameState = 'PLAYING';
         document.getElementById('pauseMenuOverlay').classList.remove('active');
         if (window.audioManager) window.audioManager.unmute();
+        if (window.CrazyGames && window.CrazyGames.SDK && window.CrazyGames.SDK.game) {
+            window.CrazyGames.SDK.game.gameplayStart();
+        }
     }
 
     gameOver() {
@@ -806,8 +889,35 @@ class Game {
 
     updateUI() {
         document.getElementById('scoreValue').innerText = this.score;
-        document.getElementById('comboValue').innerText = 'x' + this.combo;
+        document.getElementById('comboValue').innerText = this.gameMode === 'time' ? Math.ceil(this.timeLeft) + 's' : 'x' + this.combo;
         document.getElementById('coinsValue').innerText = this.coinsInRun;
+
+        const comboMeter = document.getElementById('comboMeter');
+        if (comboMeter) {
+            if (this.combo > 1) {
+                comboMeter.innerText = 'COMBO x' + this.combo;
+                comboMeter.classList.add('bump');
+                setTimeout(() => comboMeter.classList.remove('bump'), 200);
+            } else {
+                comboMeter.innerText = '';
+            }
+        }
+
+        const difficultyLabel = document.getElementById('difficultyIndicator');
+        if (difficultyLabel) {
+            if (this.gameMode === 'time') {
+                difficultyLabel.innerText = 'TIME ATTACK';
+                difficultyLabel.style.color = '#ffcc00';
+            } else if (this.warpMode) {
+                difficultyLabel.innerText = 'WARP MODE';
+                difficultyLabel.style.color = '#ff00ff';
+            } else {
+                let difficultyFactor = Math.min(1.0, this.score / 50);
+                if (difficultyFactor < 0.3) { difficultyLabel.innerText = 'EASY'; difficultyLabel.style.color = '#00ff88'; }
+                else if (difficultyFactor < 0.7) { difficultyLabel.innerText = 'MEDIUM'; difficultyLabel.style.color = '#ffff00'; }
+                else { difficultyLabel.innerText = 'HARD'; difficultyLabel.style.color = '#ff4b2b'; }
+            }
+        }
     }
 
     loop(timestamp) {
@@ -823,7 +933,15 @@ class Game {
         }
 
         if (this.gameState === 'PLAYING') {
+            if (this.gameMode === 'time') {
+                this.timeLeft -= (dt * 16.67) / 1000;
+                if (this.timeLeft <= 0) {
+                    this.timeLeft = 0;
+                    this.gameOver();
+                }
+            }
             this.update(dt);
+            this.updateUI();
         }
 
         this.draw();
@@ -844,12 +962,39 @@ class Game {
             });
         });
 
-        // Pillars
-        if (this.pillars.length === 0 || this.pillars[this.pillars.length - 1].x < this.canvas.width - 260) {
-            let newPillar = new Pillar(this.canvas, this.canvas.width, this.selectedChar.color);
+        // Pillars & Difficulty
+        let difficultyFactor = Math.min(1.0, this.score / 50);
+        let currentGap = 210 - (difficultyFactor * 60);
+        let luckFactor = 1.0 + (this.state.upgrades.luck - 1) * 0.2;
+
+        if (this.warpMode) {
+            this.gameSpeed = 12.0;
+            this.warpTimer -= dt * 16.67;
+            if (this.warpTimer <= 0) {
+                this.warpMode = false;
+                document.querySelector('.game-container').classList.remove('warp-active');
+            }
+        } else {
+            this.gameSpeed = this.zones[this.currentZoneIdx].speed + (difficultyFactor * 2.5);
+            if (this.score >= this.pointsToWarp) {
+                this.warpMode = true;
+                this.warpTimer = 5000;
+                this.pointsToWarp += 40;
+                this.shake = 15;
+                document.querySelector('.game-container').classList.add('warp-active');
+                if (window.audioManager) window.audioManager.playSound('score');
+            }
+        }
+
+        if (this.pillars.length === 0 || this.pillars[this.pillars.length - 1].x < this.canvas.width - (280 + difficultyFactor * 40)) {
+            let newPillar = new Pillar(this.canvas, this.canvas.width, this.selectedChar.color, currentGap);
             this.pillars.push(newPillar);
-            this.coins.push(new Coin(this.canvas, this.canvas.width + 100, newPillar.top + newPillar.gap / 2));
-            if (Math.random() < 0.15) {
+
+            if (Math.random() < 0.8 * luckFactor) {
+                this.coins.push(new Coin(this.canvas, this.canvas.width + 100, newPillar.top + newPillar.gap / 2));
+            }
+
+            if (Math.random() < 0.15 * luckFactor) {
                 let types = ['shield', 'magnet', 'slowmo'];
                 this.powerups.push(new PowerUp(this.canvas, this.canvas.width + 150, Math.random() * (this.canvas.height - 100) + 50, types[Math.floor(Math.random() * types.length)]));
             }
@@ -858,6 +1003,21 @@ class Game {
         for (let i = this.pillars.length - 1; i >= 0; i--) {
             let p = this.pillars[i];
             p.update(effectiveDt, this.gameSpeed);
+
+            // Near Miss Detection
+            if (this.craft.x > p.x && this.craft.x < p.x + p.width) {
+                let distTop = Math.abs(this.craft.y - p.top);
+                let distBottom = Math.abs(this.craft.y - (this.canvas.height - p.bottom));
+                if ((distTop < 30 || distBottom < 30) && !p.nearMissed && !p.passed) {
+                    p.nearMissed = true;
+                    let bonus = this.warpMode ? 6 : 2;
+                    this.score += bonus;
+                    this.floaters.push(new ScoreFloater(this.craft.x, this.craft.y - 20, "NEAR MISS! +" + bonus, "#ff00ff"));
+                    this.shake = 5;
+                    if (window.audioManager) window.audioManager.playSound('thrust');
+                }
+            }
+
             // Fair hitboxes: visual is radius 15, we use 10 for collision
             if (this.craft.x + 10 > p.x && this.craft.x - 10 < p.x + p.width) {
                 if (this.craft.y - 8 < p.top || this.craft.y + 8 > this.canvas.height - p.bottom) {
@@ -866,7 +1026,8 @@ class Game {
             }
             if (!p.passed && p.x + p.width < this.craft.x) {
                 p.passed = true;
-                this.score += this.combo;
+                let scoreGain = this.warpMode ? this.combo * 3 : this.combo;
+                this.score += scoreGain;
                 this.combo++;
                 this.flash = 6;
                 this.updateUI();
