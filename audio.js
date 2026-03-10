@@ -1,4 +1,4 @@
-// Flappy Bird Ultimate - Audio Manager
+// Aero Dash: Sky High - Audio Manager
 // Handles all sound effects and music playback
 
 class AudioManager {

@@ -1,5 +1,5 @@
 // ============================================================================
-// FLAPPY BIRD ULTIMATE - Main Game Engine
+// AERO DASH: SKY HIGH - Main Game Engine
 // ============================================================================
 // Dependencies: audio.js (AudioManager)
 
@@ -37,55 +37,111 @@ class Particle {
     }
 }
 
-class Bird {
+class Floater {
+    constructor(x, y, text, color) {
+        this.x = x;
+        this.y = y;
+        this.text = text;
+        this.color = color;
+        this.life = 60;
+        this.opacity = 1;
+    }
+    update(dt) {
+        this.y -= 1 * dt;
+        this.life -= dt;
+        this.opacity = Math.max(0, this.life / 60);
+    }
+    draw(ctx) {
+        ctx.save();
+        ctx.globalAlpha = this.opacity;
+        ctx.fillStyle = this.color;
+        ctx.font = 'bold 20px Inter';
+        ctx.fillText(this.text, this.x, this.y);
+        ctx.restore();
+    }
+}
+
+class PowerUp {
+    constructor(x, y, type, settings) {
+        this.x = x;
+        this.y = y;
+        this.type = type;
+        this.settings = settings;
+        this.width = 30;
+        this.height = 30;
+        this.pulse = 0;
+    }
+    update(dt, gameSpeed) {
+        this.x -= 4 * gameSpeed * dt;
+        this.pulse += 0.1 * dt;
+    }
+    draw(ctx) {
+        ctx.save();
+        const bounce = Math.sin(this.pulse) * 5;
+        ctx.translate(this.x, this.y + bounce);
+
+        // Glow
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = this.settings.color;
+
+        ctx.fillStyle = this.settings.color;
+        ctx.beginPath();
+        ctx.arc(0, 0, 15, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = '#fff';
+        ctx.font = '16px serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(this.settings.emoji, 0, 0);
+        ctx.restore();
+    }
+}
+
+class AeroCraft {
     constructor(character = 'classic') {
         this.character = character;
         this.x = 100;
         this.y = 200;
-        this.width = 34; // Increased size slightly for better visibility
-        this.height = 28;
+        this.width = 36;
+        this.height = 24;
         this.velocity = 0;
         this.gravity = 0.25;
         this.flapPower = -6;
         this.maxVelocity = 7;
         this.rotation = 0;
-        this.wingFlap = 0; // Wing animation frame
-        this.blinkTimer = 0;
-        this.isBlinking = false;
+        this.thrusterLife = 0;
 
         this.characterColors = {
-            classic: { body: '#FFD700', wing: '#FFA500', belly: '#FFFACD' },
-            golden: { body: '#FFD700', wing: '#FFB700', belly: '#FFF8DC' },
-            ninja: { body: '#1a1a1a', wing: '#333', belly: '#444' },
-            magnet: { body: '#FF69B4', wing: '#FF1493', belly: '#FFB6C1' },
-            ghost: { body: '#F8F8F8', wing: '#D3D3D3', belly: '#FFFFFF' },
-            eagle: { body: '#8B4513', wing: '#654321', belly: '#DEB887' },
-            penguin: { body: '#000000', wing: '#333', belly: '#FFFFFF' },
-            hummingbird: { body: '#4CAF50', wing: '#45a049', belly: '#98FB98' },
-            phoenix: { body: '#FF4500', wing: '#FF6347', belly: '#FFD700' },
-            robot: { body: '#A9A9A9', wing: '#808080', belly: '#D3D3D3' },
-            robin: { body: '#E07856', wing: '#4A8B7C', belly: '#F4A460' }
+            classic: { body: '#3a7bd5', wing: '#00d2ff', accent: '#fff' },
+            golden: { body: '#f09819', wing: '#edde5d', accent: '#fff' },
+            ninja: { body: '#232526', wing: '#414345', accent: '#f00' },
+            magnet: { body: '#834d9b', wing: '#d04ed6', accent: '#fff' },
+            ghost: { body: '#e0e0e0', wing: '#ffffff', accent: '#aaa' },
+            eagle: { body: '#4b6cb7', wing: '#182848', accent: '#fff' },
+            penguin: { body: '#000000', wing: '#333', accent: '#fff' },
+            hummingbird: { body: '#11998e', wing: '#38ef7d', accent: '#fff' },
+            phoenix: { body: '#f83600', wing: '#fe8c00', accent: '#ffd700' },
+            robot: { body: '#bdc3c7', wing: '#2c3e50', accent: '#00f2fe' },
+            robin: { body: '#ff9966', wing: '#ff5e62', accent: '#fff' }
         };
     }
 
-    update(dt = 1) {
-        this.velocity = Math.min(this.velocity + this.gravity * dt, this.maxVelocity);
+    update(dt = 1, isSlowMo = false) {
+        let actualGravity = this.gravity;
+        if (isSlowMo) actualGravity *= 0.5;
+
+        this.velocity = Math.min(this.velocity + actualGravity * dt, this.maxVelocity);
         this.y += this.velocity * dt;
         this.rotation = Math.min(this.rotation + 0.05 * dt, Math.PI / 6);
-        this.wingFlap = (this.wingFlap + 0.15 * dt) % (Math.PI * 2); // Faster wing animation
-
-        // Blink logic
-        this.blinkTimer -= dt;
-        if (this.blinkTimer <= 0) {
-            this.isBlinking = !this.isBlinking;
-            this.blinkTimer = this.isBlinking ? 5 + Math.random() * 5 : 100 + Math.random() * 200;
-        }
+        if (this.thrusterLife > 0) this.thrusterLife -= dt;
     }
 
     flap() {
         this.velocity = this.flapPower;
         this.rotation = -Math.PI / 6;
-        this.wingFlap = -Math.PI / 4; // Wing flaps upward
+        this.thrusterLife = 10;
     }
 
     draw(ctx) {
@@ -95,145 +151,114 @@ class Bird {
         ctx.translate(this.x, this.y);
         ctx.rotate(this.rotation);
 
-        // Draw body with shadow
-        ctx.shadowBlur = 5;
-        ctx.shadowColor = 'rgba(0,0,0,0.3)';
-        ctx.shadowOffsetY = 2;
-
-        // Draw main body (ellipse)
-        const gradient = ctx.createRadialGradient(0, 0, 2, 0, 0, this.width / 2);
-        gradient.addColorStop(0, colors.belly || '#FFFACD');
-        gradient.addColorStop(1, colors.body);
+        // Draw Aero Craft Body (Sleek Shape)
+        const gradient = ctx.createLinearGradient(-this.width/2, 0, this.width/2, 0);
+        gradient.addColorStop(0, colors.body);
+        gradient.addColorStop(1, colors.wing);
 
         ctx.fillStyle = gradient;
         ctx.beginPath();
-        ctx.ellipse(0, 0, this.width / 2, this.height / 2, 0, 0, Math.PI * 2);
-        ctx.fill();
-
-        ctx.shadowBlur = 0;
-        ctx.shadowOffsetY = 0;
-
-        // Draw eye
-        ctx.fillStyle = '#fff';
-        ctx.beginPath();
-        ctx.arc(10, -5, 6, 0, Math.PI * 2);
-        ctx.fill();
-
-        if (!this.isBlinking) {
-            ctx.fillStyle = '#000';
-            ctx.beginPath();
-            ctx.arc(12, -5, 3.5, 0, Math.PI * 2);
-            ctx.fill();
-
-            // Eye shine for life
-            ctx.fillStyle = '#fff';
-            ctx.beginPath();
-            ctx.arc(13, -6.5, 1.5, 0, Math.PI * 2);
-            ctx.fill();
-        } else {
-            // Eyelid
-            ctx.strokeStyle = '#000';
-            ctx.lineWidth = 1.5;
-            ctx.beginPath();
-            ctx.moveTo(7, -5);
-            ctx.lineTo(13, -5);
-            ctx.stroke();
-        }
-
-        // Draw beak
-        ctx.fillStyle = '#FF8C00'; // Orange beak
-        ctx.beginPath();
-        ctx.moveTo(this.width / 2 - 2, -2);
-        ctx.lineTo(this.width / 2 + 8, 2);
-        ctx.lineTo(this.width / 2 - 2, 6);
+        ctx.moveTo(-this.width/2, -this.height/2);
+        ctx.lineTo(this.width/2 - 10, -this.height/2);
+        ctx.lineTo(this.width/2, 0);
+        ctx.lineTo(this.width/2 - 10, this.height/2);
+        ctx.lineTo(-this.width/2, this.height/2);
         ctx.closePath();
         ctx.fill();
-        ctx.strokeStyle = '#000';
-        ctx.lineWidth = 1;
+
+        // Cockpit / Visor
+        ctx.fillStyle = colors.accent;
+        ctx.globalAlpha = 0.7;
+        ctx.beginPath();
+        ctx.ellipse(8, -2, 8, 5, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+
+        // Thruster flame if active
+        if (this.thrusterLife > 0) {
+            ctx.fillStyle = '#ff4500';
+            ctx.beginPath();
+            ctx.moveTo(-this.width/2, -5);
+            ctx.lineTo(-this.width/2 - 15, 0);
+            ctx.lineTo(-this.width/2, 5);
+            ctx.fill();
+
+            ctx.fillStyle = '#ffff00';
+            ctx.beginPath();
+            ctx.moveTo(-this.width/2, -3);
+            ctx.lineTo(-this.width/2 - 8, 0);
+            ctx.lineTo(-this.width/2, 3);
+            ctx.fill();
+        }
+
+        // Mechanical Wing/Fin
+        ctx.fillStyle = colors.body;
+        ctx.beginPath();
+        ctx.moveTo(-10, 0);
+        ctx.lineTo(-20, -15);
+        ctx.lineTo(-5, -15);
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(255,255,255,0.3)';
         ctx.stroke();
 
-        // Draw animated wings
-        ctx.fillStyle = colors.wing;
-        const wingRotation = Math.sin(this.wingFlap) * 0.4; // Wing oscillation
-        ctx.save();
-        ctx.translate(-8, 0);
-        ctx.rotate(wingRotation);
-
-        ctx.beginPath();
-        ctx.ellipse(0, 0, 10, 14, -0.3, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.strokeStyle = 'rgba(0,0,0,0.2)';
-        ctx.stroke();
-
-        // Wing highlight
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
-        ctx.beginPath();
-        ctx.ellipse(2, -3, 6, 9, -0.3, 0, Math.PI * 2);
-        ctx.fill();
         ctx.restore();
-
-        ctx.restore();
-    }
-
-    isAlive() {
-        return this.y > -50 && this.y < 10000;
     }
 }
 
-class Pipe {
+class Pillar {
     constructor(x, gap, gapSize) {
         this.x = x;
         this.gap = gap;
         this.gapSize = gapSize;
-        this.width = 65; // Slightly wider pipes
+        this.width = 70;
         this.speed = 4;
         this.passed = false;
-        this.type = Math.random() < 0.2 ? 'bonus' : 'normal';
+        this.glowPhase = 0;
     }
 
-    update(dt = 1) {
-        this.x -= this.speed * dt;
+    update(dt = 1, gameSpeed = 1) {
+        this.x -= this.speed * gameSpeed * dt;
+        this.glowPhase = (this.glowPhase + 0.05 * dt) % (Math.PI * 2);
     }
 
     draw(ctx, canvasHeight) {
-        let pipeColor = this.type === 'bonus' ? '#FFD700' : '#4CAF50';
-        let pipeHighlight = this.type === 'bonus' ? '#DAA520' : '#2E7D32';
+        const glow = Math.abs(Math.sin(this.glowPhase)) * 15;
 
-        if (Math.floor(this.x) % 200 === 0 && this.type !== 'bonus') {
-            pipeColor = '#FF6B6B'; // Danger pipe
-            pipeHighlight = '#CC5555';
-        }
+        // Pillar Design (Tech Style)
+        ctx.fillStyle = '#1a1a2e';
+        ctx.strokeStyle = '#00f2fe';
+        ctx.lineWidth = 3;
 
-        // Draw pipe body
-        const gradTop = ctx.createLinearGradient(this.x, 0, this.x + this.width, 0);
-        gradTop.addColorStop(0, pipeHighlight);
-        gradTop.addColorStop(0.3, pipeColor);
-        gradTop.addColorStop(1, pipeHighlight);
-
-        ctx.fillStyle = gradTop;
-
-        // Top pipe
+        // Top Pillar
+        ctx.shadowBlur = glow;
+        ctx.shadowColor = '#00f2fe';
         ctx.fillRect(this.x, 0, this.width, this.gap);
-        // Bottom pipe
+        ctx.strokeRect(this.x, 0, this.width, this.gap);
+
+        // Bottom Pillar
         ctx.fillRect(this.x, this.gap + this.gapSize, this.width, canvasHeight - this.gap - this.gapSize);
+        ctx.strokeRect(this.x, this.gap + this.gapSize, this.width, canvasHeight - this.gap - this.gapSize);
 
-        // Pipe caps
-        ctx.fillStyle = pipeColor;
-        ctx.strokeStyle = '#000';
-        ctx.lineWidth = 2;
+        ctx.shadowBlur = 0;
 
-        // Top cap
-        ctx.fillRect(this.x - 4, this.gap - 25, this.width + 8, 25);
-        ctx.strokeRect(this.x - 4, this.gap - 25, this.width + 8, 25);
+        // Energy Core Details
+        ctx.fillStyle = 'rgba(0, 242, 254, 0.2)';
+        ctx.fillRect(this.x + 10, 0, this.width - 20, this.gap);
+        ctx.fillRect(this.x + 10, this.gap + this.gapSize, this.width - 20, canvasHeight - this.gap - this.gapSize);
 
-        // Bottom cap
-        ctx.fillRect(this.x - 4, this.gap + this.gapSize, this.width + 8, 25);
-        ctx.strokeRect(this.x - 4, this.gap + this.gapSize, this.width + 8, 25);
-
-        // Glossy highlight
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
-        ctx.fillRect(this.x + 8, 0, 6, this.gap - 25);
-        ctx.fillRect(this.x + 8, this.gap + this.gapSize + 25, 6, canvasHeight - (this.gap + this.gapSize + 25));
+        // Pulse lines
+        ctx.strokeStyle = 'rgba(0, 242, 254, 0.5)';
+        ctx.beginPath();
+        for(let y = 20; y < this.gap; y += 40) {
+            ctx.moveTo(this.x + 5, y);
+            ctx.lineTo(this.x + this.width - 5, y);
+        }
+        for(let y = this.gap + this.gapSize + 20; y < canvasHeight; y += 40) {
+            ctx.moveTo(this.x + 5, y);
+            ctx.lineTo(this.x + this.width - 5, y);
+        }
+        ctx.stroke();
     }
 
     isOffScreen() {
@@ -241,10 +266,10 @@ class Pipe {
     }
 
     collidesWith(bird) {
-        const birdLeft = bird.x - bird.width / 2 + 4;
-        const birdRight = bird.x + bird.width / 2 - 4;
-        const birdTop = bird.y - bird.height / 2 + 4;
-        const birdBottom = bird.y + bird.height / 2 - 4;
+        const birdLeft = bird.x - bird.width / 2 + 5;
+        const birdRight = bird.x + bird.width / 2 - 5;
+        const birdTop = bird.y - bird.height / 2 + 5;
+        const birdBottom = bird.y + bird.height / 2 - 5;
 
         const pipeLeft = this.x;
         const pipeRight = this.x + this.width;
@@ -265,10 +290,12 @@ class Game {
         this.ctx = canvas.getContext('2d');
         this.setCanvasSize();
 
-        this.bird = new Bird('classic');
+        this.bird = new AeroCraft('classic');
         this.pipes = [];
         this.particles = [];
         this.powerUps = [];
+        this.scoreFloaters = [];
+
         this.score = 0;
         this.coins = 0;
         this.highScore = this.loadHighScore();
@@ -277,87 +304,51 @@ class Game {
         this.difficulty = 'normal';
         this.frameCount = 0;
         this.audioManager = new AudioManager();
+
         this.comboMultiplier = 1;
         this.consecutiveScores = 0;
+        this.activePowerUps = {};
 
-        // Statistics tracking
         this.sessionStats = {
             gamesPlayed: 0,
             totalScore: 0,
             totalCoins: 0,
-            gamesWon: 0,
-            bestCombo: 0,
-            longestSession: 0,
-            pipesAvoided: 0
+            pipesAvoided: 0,
+            bestCombo: 0
         };
         this.loadStats();
 
-        // Achievement system
-        this.achievements = {
-            firstFlight: { name: 'First Flight', desc: 'Play your first game', unlocked: false, icon: '🐦' },
-            ninetyNine: { name: 'Perfection', desc: 'Reach 99 points', unlocked: false, icon: '🌟' },
-            comboKing: { name: 'Combo King', desc: 'Reach 10 consecutive pipes', unlocked: false, icon: '👑' },
-            collector: { name: 'Collector', desc: 'Collect 50 coins', unlocked: false, icon: '💰' },
-            legend: { name: 'Legend', desc: 'Reach 500 points', unlocked: false, icon: '✨' },
-            speedster: { name: 'Speedster', desc: 'Complete 5 games on hard difficulty', unlocked: false, icon: '⚡' },
-            survivor: { name: 'Survivor', desc: 'Use 3 shield power-ups in one game', unlocked: false, icon: '🛡' },
-            ghost: { name: 'Ghost Master', desc: 'Use ghost mode 5 times', unlocked: false, icon: '👻' }
-        };
-        this.loadAchievements();
-
-        // Rank system
         this.ranks = [
-            { name: 'Rookie', minScore: 0, maxScore: 49, color: '#888888', icon: '🔰' },
-            { name: 'Beginner', minScore: 50, maxScore: 99, color: '#4CAF50', icon: '🌱' },
-            { name: 'Amateur', minScore: 100, maxScore: 199, color: '#2196F3', icon: '⭐' },
-            { name: 'Pro', minScore: 200, maxScore: 399, color: '#FF9800', icon: '🏆' },
-            { name: 'Expert', minScore: 400, maxScore: 699, color: '#F44336', icon: '🔥' },
-            { name: 'Master', minScore: 700, maxScore: 999, color: '#9C27B0', icon: '👑' },
-            { name: 'Legend', minScore: 1000, maxScore: Infinity, color: '#FFD700', icon: '✨' }
+            { name: 'Rookie Pilot', minScore: 0, maxScore: 49, color: '#888888', icon: '🔰' },
+            { name: 'Cadet', minScore: 50, maxScore: 99, color: '#4CAF50', icon: '🌱' },
+            { name: 'Aviator', minScore: 100, maxScore: 199, color: '#2196F3', icon: '⭐' },
+            { name: 'Elite Pilot', minScore: 200, maxScore: 399, color: '#FF9800', icon: '🏆' },
+            { name: 'Commander', minScore: 400, maxScore: 699, color: '#F44336', icon: '🔥' },
+            { name: 'Sky Master', minScore: 700, maxScore: 999, color: '#9C27B0', icon: '👑' },
+            { name: 'Legendary Ace', minScore: 1000, maxScore: Infinity, color: '#FFD700', icon: '✨' }
         ];
 
-        // Power-ups
-        this.activePowerUps = {};
         this.powerUpTypes = {
-            shield: { duration: 300, color: '#FFD700', emoji: '🛡' },
-            slowMotion: { duration: 350, color: '#00BFFF', emoji: '⏱' },
-            magnet: { duration: 500, color: '#FF69B4', emoji: '🧲' },
-            doublePoints: { duration: 750, color: '#FFB700', emoji: '2x' },
-            ghost: { duration: 150, color: '#E0E0E0', emoji: '👻' },
-            speedBoost: { duration: 400, color: '#FF4500', emoji: '⚡' },
+            shield: { duration: 400, color: '#FFD700', emoji: '🛡' },
+            slowMotion: { duration: 400, color: '#00BFFF', emoji: '⏱' },
+            magnet: { duration: 600, color: '#FF69B4', emoji: '🧲' },
+            doublePoints: { duration: 500, color: '#FFB700', emoji: '2x' },
+            ghost: { duration: 250, color: '#E0E0E0', emoji: '👻' },
+            speedBoost: { duration: 300, color: '#FF4500', emoji: '⚡' },
             coin: { duration: 0, color: '#FFD700', emoji: '💰' }
         };
 
-        // Game speed multiplier (0.65 = 35% slower than original)
-        this.gameSpeedMultiplier = 0.65;
-
-        // Difficulty settings with easier defaults
         this.difficultySettings = { id: 'easy', name: 'Easy', gapSize: 180, spawnRate: 160 };
-
-        // Visual effects
-        this.screenShake = 0;
-        this.screenShakeIntensity = 0;
-        this.scoreFloaters = [];
-        this.pipesMissed = 0;
-        this.particlesEnabled = true;
-        this.menuInitialized = false;
-        this.difficultyProgressionEnabled = false; // Set to true to enable dynamic difficulty
-
-        this.gameState = 'menu'; // menu, playing, paused, gameover
-
+        this.gameState = 'menu';
         this.lastTime = 0;
-        this.lastDt = 1;
+        this.particlesEnabled = true;
 
         window.addEventListener('click', () => this.handleInput());
         window.addEventListener('keydown', (e) => this.handleKeyInput(e));
-        window.addEventListener('touchstart', () => this.handleInput());
+        window.addEventListener('touchstart', (e) => { e.preventDefault(); this.handleInput(); }, { passive: false });
 
         this.initMenu();
-
-        if (window.CrazyGames && window.CrazyGames.SDK) {
-            window.CrazyGames.SDK.game.sdkGameLoadingStop();
-        }
-
+        if (window.CrazyGames && window.CrazyGames.SDK) window.CrazyGames.SDK.game.sdkGameLoadingStop();
         requestAnimationFrame((t) => this.gameLoop(t));
     }
 
@@ -376,10 +367,7 @@ class Game {
     handleKeyInput(e) {
         if (e.code === 'Space') {
             e.preventDefault();
-            if (this.gameState === 'playing' && !this.gamePaused) {
-                this.bird.flap();
-                this.audioManager.playFlapSound();
-            }
+            this.handleInput();
         }
         if (e.code === 'Escape' && this.gameState === 'playing') {
             this.togglePause();
@@ -387,155 +375,107 @@ class Game {
     }
 
     initMenu() {
-        // Only initialize once
-        if (this.menuInitialized) return;
-        this.menuInitialized = true;
-
         this.populateCharacterSelect();
         this.populateDifficultySelect();
-        this.updateLeaderboard();
         this.updateMenuRankDisplay();
         this.audioManager.playMenuMusic();
 
-        document.getElementById('playGameBtn').addEventListener('click', () => {
-            this.audioManager.stopMenuMusic();
-            this.audioManager.playButtonClickSound();
-            this.startGame();
+        document.getElementById('playGameBtn').addEventListener('click', () => { this.audioManager.stopMenuMusic(); this.audioManager.playButtonClickSound(); this.startGame(); });
+        document.getElementById('settingsBtn').addEventListener('click', () => { this.audioManager.playButtonClickSound(); this.showPanel('settingsOverlay'); });
+        document.getElementById('leaderboardBtn').addEventListener('click', () => { this.audioManager.playButtonClickSound(); this.showPanel('leaderboardOverlay'); });
+        document.getElementById('aboutBtn').addEventListener('click', () => { this.audioManager.playButtonClickSound(); this.showPanel('aboutOverlay'); });
+        document.getElementById('achievementsBtn').addEventListener('click', () => { this.audioManager.playButtonClickSound(); this.showPanel('achievementsOverlay'); });
+
+        document.getElementById('resumeBtn').addEventListener('click', () => { this.audioManager.playButtonClickSound(); this.togglePause(); });
+        document.getElementById('restartBtn').addEventListener('click', () => { this.audioManager.playButtonClickSound(); this.startGame(); });
+        document.getElementById('mainMenuBtn').addEventListener('click', () => { this.audioManager.playButtonClickSound(); this.goToMenu(); });
+        document.getElementById('retryBtn').addEventListener('click', () => { this.audioManager.playButtonClickSound(); this.startGame(); });
+        document.getElementById('menuBtn').addEventListener('click', () => { this.audioManager.playButtonClickSound(); this.goToMenu(); });
+
+        const closeBtns = ['settingsCloseBtn', 'leaderboardCloseBtn', 'aboutCloseBtn', 'achievementsCloseBtn'];
+        closeBtns.forEach(id => {
+            const btn = document.getElementById(id);
+            if(btn) btn.addEventListener('click', () => { this.audioManager.playButtonClickSound(); this.hideAllPanels(); });
         });
-        document.getElementById('settingsBtn').addEventListener('click', () => {
-            this.audioManager.playButtonClickSound();
-            this.showSettings();
-        });
-        document.getElementById('leaderboardBtn').addEventListener('click', () => {
-            this.audioManager.playButtonClickSound();
-            this.showLeaderboard();
-        });
-        const achievementsBtn = document.getElementById('achievementsBtn');
-        if (achievementsBtn) {
-            achievementsBtn.addEventListener('click', () => {
-                this.audioManager.playButtonClickSound();
-                this.showAchievements();
-            });
+
+        document.getElementById('masterVolume').addEventListener('input', (e) => { this.audioManager.setMasterVolume(e.target.value / 100); document.getElementById('volumeValue').textContent = e.target.value + '%'; });
+    }
+
+    showPanel(id) {
+        this.hideAllPanels();
+        if (id === 'leaderboardOverlay') this.updateLeaderboard();
+        if (id === 'achievementsOverlay') this.updateAchievements();
+        const el = document.getElementById(id);
+        if (el) { el.style.display = 'flex'; el.classList.add('active'); }
+    }
+
+    updateLeaderboard() {
+        const scores = this.getTopScores();
+        const container = document.getElementById('leaderboardEntries');
+        if (!container) return;
+        container.innerHTML = scores.length ? scores.map((s, i) => `
+            <div class="stat-item" style="display:flex; justify-content:space-between; margin-bottom:10px; padding:10px 20px;">
+                <span>#${i+1} ${s.name}</span>
+                <span style="color:var(--primary-neon); font-weight:900;">${s.score}</span>
+            </div>
+        `).join('') : '<p style="text-align:center; opacity:0.5;">No scores recorded yet!</p>';
+    }
+
+    updateAchievements() {
+        const container = document.getElementById('achievementsEntries');
+        if (!container) return;
+        const achievements = [
+            { id: 'first_flight', name: 'First Flight', desc: 'Start your first game', icon: '🚀', goal: 1, current: this.sessionStats.gamesPlayed },
+            { id: 'coin_collector', name: 'Energy Hunter', desc: 'Collect 50 energy coins', icon: '💰', goal: 50, current: this.sessionStats.totalCoins },
+            { id: 'score_master', name: 'Elite Pilot', desc: 'Reach a high score of 100', icon: '🏆', goal: 100, current: this.highScore },
+            { id: 'combo_king', name: 'Combo Master', desc: 'Reach a x5 multiplier', icon: '⚡', goal: 5, current: this.sessionStats.bestCombo }
+        ];
+        container.innerHTML = achievements.map(a => {
+            const progress = Math.min(100, (a.current / a.goal) * 100);
+            return `
+            <div class="achievement-item" style="background:rgba(255,255,255,0.05); padding:15px; border-radius:15px; margin-bottom:10px;">
+                <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
+                    <span style="font-weight:900;">${a.icon} ${a.name}</span>
+                    <span style="color:var(--primary-neon); font-size:12px;">${Math.floor(progress)}%</span>
+                </div>
+                <div style="font-size:10px; opacity:0.6; margin-bottom:8px;">${a.desc}</div>
+                <div style="width:100%; height:4px; background:rgba(255,255,255,0.1); border-radius:2px;">
+                    <div style="width:${progress}%; height:100%; background:var(--primary-neon); border-radius:2px;"></div>
+                </div>
+            </div>`;
+        }).join('');
+    }
+
+    getTopScores() {
+        let scores = JSON.parse(localStorage.getItem('aeroDashScores') || '[]');
+        if (this.highScore > 0 && !scores.some(s => s.score === this.highScore)) {
+            scores.push({ name: 'YOU', score: this.highScore });
+            scores.sort((a,b) => b.score - a.score);
+            scores = scores.slice(0, 5);
+            localStorage.setItem('aeroDashScores', JSON.stringify(scores));
         }
-        document.getElementById('aboutBtn').addEventListener('click', () => {
-            this.audioManager.playButtonClickSound();
-            this.showAbout();
-        });
+        return scores;
+    }
 
-        document.getElementById('resumeBtn').addEventListener('click', () => {
-            this.audioManager.playButtonClickSound();
-            this.togglePause();
-        });
-        document.getElementById('restartBtn').addEventListener('click', () => {
-            this.audioManager.playButtonClickSound();
-            this.startGame();
-        });
-        document.getElementById('mainMenuBtn').addEventListener('click', () => {
-            this.audioManager.playButtonClickSound();
-            this.goToMenu();
-        });
-
-        document.getElementById('retryBtn').addEventListener('click', () => {
-            this.audioManager.playButtonClickSound();
-            this.startGame();
-        });
-        document.getElementById('menuBtn').addEventListener('click', () => {
-            this.audioManager.playButtonClickSound();
-            this.goToMenu();
-        });
-
-        // Settings
-        document.getElementById('settingsCloseBtn').addEventListener('click', () => {
-            this.audioManager.playButtonClickSound();
-            this.hideSettings();
-        });
-        document.getElementById('masterVolume').addEventListener('input', (e) => {
-            this.audioManager.setMasterVolume(e.target.value / 100);
-            document.getElementById('volumeValue').textContent = e.target.value + '%';
-        });
-        document.getElementById('musicVolume').addEventListener('input', (e) => {
-            this.audioManager.setMusicVolume(e.target.value / 100);
-            document.getElementById('musicVolumeValue').textContent = e.target.value + '%';
-        });
-        document.getElementById('sfxVolume').addEventListener('input', (e) => {
-            this.audioManager.setSfxVolume(e.target.value / 100);
-            document.getElementById('sfxVolumeValue').textContent = e.target.value + '%';
-        });
-
-        document.getElementById('sfxToggle').addEventListener('click', (e) => {
-            e.currentTarget.classList.toggle('enabled');
-            this.audioManager.toggleSound(e.currentTarget.classList.contains('enabled'));
-        });
-
-        document.getElementById('musicToggle').addEventListener('click', (e) => {
-            e.currentTarget.classList.toggle('enabled');
-            this.audioManager.toggleMusic(e.currentTarget.classList.contains('enabled'));
-        });
-
-        document.getElementById('particlesToggle').addEventListener('click', (e) => {
-            e.currentTarget.classList.toggle('enabled');
-            this.particlesEnabled = e.currentTarget.classList.contains('enabled');
-        });
-
-        document.getElementById('leaderboardCloseBtn').addEventListener('click', () => {
-            this.audioManager.playButtonClickSound();
-            this.hideLeaderboard();
-        });
-        document.getElementById('achievementsCloseBtn').addEventListener('click', () => {
-            this.audioManager.playButtonClickSound();
-            this.hideAchievements();
-        });
-        document.getElementById('aboutCloseBtn').addEventListener('click', () => {
-            this.audioManager.playButtonClickSound();
-            this.hideAbout();
-        });
-
-        // Close modals when clicking on overlay background
-        document.getElementById('settingsOverlay').addEventListener('click', (e) => {
-            if (e.target.id === 'settingsOverlay') {
-                this.hideSettings();
-            }
-        });
-        document.getElementById('leaderboardOverlay').addEventListener('click', (e) => {
-            if (e.target.id === 'leaderboardOverlay') {
-                this.hideLeaderboard();
-            }
-        });
-        document.getElementById('achievementsOverlay').addEventListener('click', (e) => {
-            if (e.target.id === 'achievementsOverlay') {
-                this.hideAchievements();
-            }
-        });
-        document.getElementById('aboutOverlay').addEventListener('click', (e) => {
-            if (e.target.id === 'aboutOverlay') {
-                this.hideAbout();
-            }
-        });
-        document.getElementById('pauseMenuOverlay').addEventListener('click', (e) => {
-            if (e.target.id === 'pauseMenuOverlay') {
-                this.togglePause();
-            }
-        });
+    hideAllPanels() {
+        const panels = ['settingsOverlay', 'leaderboardOverlay', 'aboutOverlay', 'achievementsOverlay', 'pauseMenuOverlay'];
+        panels.forEach(id => { const el = document.getElementById(id); if(el) { el.style.display = 'none'; el.classList.remove('active'); } });
     }
 
     populateCharacterSelect() {
         const characters = [
-            { id: 'classic', name: '🐦 Classic' },
-            { id: 'golden', name: '✨ Golden' },
-            { id: 'ninja', name: '🥷 Ninja' },
-            { id: 'magnet', name: '🧲 Magnet' },
-            { id: 'ghost', name: '👻 Ghost' },
-            { id: 'eagle', name: '🦅 Eagle' },
-            { id: 'penguin', name: '🐧 Penguin' },
-            { id: 'hummingbird', name: '🐦‍🔴 Hummingbird' },
-            { id: 'phoenix', name: '🔥 Phoenix' },
-            { id: 'robot', name: '🤖 Robot' },
-            { id: 'robin', name: '🌸 Robin' }
+            { id: 'classic', name: '🚀 Blue Dart' },
+            { id: 'golden', name: '✨ Gold Ace' },
+            { id: 'ninja', name: '🥷 Stealth X' },
+            { id: 'magnet', name: '🧲 Mag-Craft' },
+            { id: 'ghost', name: '👻 Phantasm' },
+            { id: 'eagle', name: '🦅 Sky Hawk' },
+            { id: 'penguin', name: '🐧 Frost Wing' },
+            { id: 'robot', name: '🤖 Cyber-X' },
+            { id: 'phoenix', name: '🔥 Solar Ace' }
         ];
-
         const container = document.getElementById('characterSelect');
         container.innerHTML = '';
-
         characters.forEach(char => {
             const btn = document.createElement('div');
             btn.className = 'character-option';
@@ -552,16 +492,13 @@ class Game {
 
     populateDifficultySelect() {
         const difficulties = [
-            { id: 'veryeasy', name: 'Very Easy', gapSize: 200, spawnRate: 180 },
-            { id: 'easy', name: 'Easy', gapSize: 180, spawnRate: 160 },
-            { id: 'normal', name: 'Normal', gapSize: 150, spawnRate: 140 },
-            { id: 'hard', name: 'Hard', gapSize: 120, spawnRate: 120 },
-            { id: 'extreme', name: 'Extreme', gapSize: 100, spawnRate: 100 }
+            { id: 'easy', name: 'Training', gapSize: 180, spawnRate: 160 },
+            { id: 'normal', name: 'Standard', gapSize: 150, spawnRate: 140 },
+            { id: 'hard', name: 'Combat', gapSize: 120, spawnRate: 120 },
+            { id: 'extreme', name: 'Ace Pilot', gapSize: 100, spawnRate: 100 }
         ];
-
         const container = document.getElementById('difficultySelect');
         container.innerHTML = '';
-
         difficulties.forEach(diff => {
             const btn = document.createElement('button');
             btn.className = 'difficulty-btn';
@@ -575,1099 +512,281 @@ class Game {
             });
             container.appendChild(btn);
         });
-
-        this.difficultySettings = difficulties[1]; // Default to easy
     }
 
-    loadStats() {
-        const saved = localStorage.getItem('flybird_stats');
-        if (saved) {
-            this.sessionStats = JSON.parse(saved);
-        }
-    }
-
-    saveStats() {
-        localStorage.setItem('flybird_stats', JSON.stringify(this.sessionStats));
-    }
-
-    loadAchievements() {
-        const saved = localStorage.getItem('flybird_achievements');
-        if (saved) {
-            this.achievements = { ...this.achievements, ...JSON.parse(saved) };
-        }
-    }
-
-    saveAchievements() {
-        localStorage.setItem('flybird_achievements', JSON.stringify(this.achievements));
-    }
-
-    checkAchievements() {
-        // First Flight
-        if (this.sessionStats.gamesPlayed === 1 && !this.achievements.firstFlight.unlocked) {
-            this.achievements.firstFlight.unlocked = true;
-            this.showAchievementUnlocked('firstFlight');
-        }
-
-        // Perfection (99 points)
-        if (this.score >= 99 && !this.achievements.ninetyNine.unlocked) {
-            this.achievements.ninetyNine.unlocked = true;
-            this.showAchievementUnlocked('ninetyNine');
-        }
-
-        // Combo King (10 consecutive pipes)
-        if (this.consecutiveScores >= 10 && !this.achievements.comboKing.unlocked) {
-            this.achievements.comboKing.unlocked = true;
-            this.showAchievementUnlocked('comboKing');
-        }
-
-        // Collector (50 coins)
-        if (this.coins >= 50 && !this.achievements.collector.unlocked) {
-            this.achievements.collector.unlocked = true;
-            this.showAchievementUnlocked('collector');
-        }
-
-        // Legend (500 points)
-        if (this.score >= 500 && !this.achievements.legend.unlocked) {
-            this.achievements.legend.unlocked = true;
-            this.showAchievementUnlocked('legend');
-        }
-
-        // Speedster (5 hard games)
-        if (this.difficulty === 'hard' || this.difficulty === 'extreme') {
-            const hardGames = localStorage.getItem('flybird_hard_games') || '0';
-            const count = parseInt(hardGames) + 1;
-            localStorage.setItem('flybird_hard_games', count.toString());
-            if (count >= 5 && !this.achievements.speedster.unlocked) {
-                this.achievements.speedster.unlocked = true;
-                this.showAchievementUnlocked('speedster');
-            }
-        }
-
-        this.saveAchievements();
-    }
-
-    showAchievementUnlocked(achievementKey) {
-        const achievement = this.achievements[achievementKey];
-        if (!achievement) return;
-
-        const notification = document.createElement('div');
-        notification.style.cssText = `
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: linear-gradient(135deg, #FFD700, #FFA500);
-            color: #000;
-            padding: 15px 20px;
-            border-radius: 10px;
-            font-weight: bold;
-            z-index: 9999;
-            animation: slideInRight 0.5s ease-out, slideOutRight 0.5s ease-out 3.5s forwards;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-        `;
-        notification.innerHTML = `
-            <div style="font-size: 14px;">🏆 ACHIEVEMENT UNLOCKED!</div>
-            <div style="font-size: 16px; margin-top: 5px;">${achievement.icon} ${achievement.name}</div>
-            <div style="font-size: 12px; color: rgba(0,0,0,0.7); margin-top: 3px;">${achievement.desc}</div>
-        `;
-        document.body.appendChild(notification);
-
-        setTimeout(() => notification.remove(), 4000);
-    }
-
-    updateDifficulty() {
-        if (!this.difficultyProgressionEnabled) return;
-
-        // Increase difficulty based on score
-        if (this.score >= 200 && this.difficultySettings.gapSize > 100) {
-            this.difficultySettings.gapSize = Math.max(100, 180 - (this.score / 50));
-        }
-        if (this.score >= 100 && this.difficultySettings.spawnRate > 100) {
-            this.difficultySettings.spawnRate = Math.max(100, 160 - (this.score / 100));
-        }
-    }
+    loadStats() { const saved = localStorage.getItem('aeroDashStats'); if (saved) this.sessionStats = JSON.parse(saved); }
+    saveStats() { localStorage.setItem('aeroDashStats', JSON.stringify(this.sessionStats)); }
+    loadHighScore() { const saved = localStorage.getItem('aeroDashHighScore'); return saved ? parseInt(saved) : 0; }
+    saveHighScore() { localStorage.setItem('aeroDashHighScore', this.highScore.toString()); }
 
     startGame() {
-        this.bird = new Bird(this.bird.character);
-        this.pipes = [];
-        this.particles = [];
-        this.powerUps = [];
-        this.scoreFloaters = [];
-        this.score = 0;
-        this.coins = 0;
-        this.activePowerUps = {};
-        this.frameCount = 0;
-        this.pipesMissed = 0;
-        this.gameRunning = true;
-        this.gamePaused = false;
-        this.gameState = 'playing';
-        this.comboMultiplier = 1;
-        this.consecutiveScores = 0;
+        this.bird = new AeroCraft(this.bird.character);
+        this.pipes = []; this.particles = []; this.powerUps = []; this.scoreFloaters = [];
+        this.score = 0; this.coins = 0; this.frameCount = 0; this.gameState = 'playing';
+        this.comboMultiplier = 1; this.consecutiveScores = 0; this.activePowerUps = {};
         this.sessionStats.gamesPlayed++;
-        this.screenShake = 0;
-
-        if (window.CrazyGames && window.CrazyGames.SDK) {
-            window.CrazyGames.SDK.game.gameplayStart();
-        }
-
-        // Hide all overlays
-        const overlays = [
-            'mainMenu',
-            'gameOverScreen',
-            'pauseMenuOverlay',
-            'leaderboardOverlay',
-            'settingsOverlay',
-            'achievementsOverlay',
-            'aboutOverlay'
-        ];
-
-        overlays.forEach(id => {
-            const el = document.getElementById(id);
-            if (el) {
-                if (id === 'mainMenu' || id === 'gameOverScreen') {
-                    el.style.display = 'none';
-                } else {
-                    el.classList.remove('active');
-                }
-            }
-        });
+        if (window.CrazyGames && window.CrazyGames.SDK) window.CrazyGames.SDK.game.gameplayStart();
+        document.getElementById('mainMenu').style.display = 'none';
+        document.getElementById('gameOverScreen').style.display = 'none';
+        this.hideAllPanels();
     }
 
     togglePause() {
         if (this.gameState === 'playing') {
-            this.gamePaused = true;
-            this.gameState = 'paused';
+            this.gamePaused = true; this.gameState = 'paused';
+            document.getElementById('pauseMenuOverlay').style.display = 'flex';
             document.getElementById('pauseMenuOverlay').classList.add('active');
-            if (window.CrazyGames && window.CrazyGames.SDK) {
-                window.CrazyGames.SDK.game.gameplayStop();
-            }
+            if (window.CrazyGames && window.CrazyGames.SDK) window.CrazyGames.SDK.game.gameplayStop();
         } else if (this.gameState === 'paused') {
-            this.gamePaused = false;
-            this.gameState = 'playing';
-            document.getElementById('pauseMenuOverlay').classList.remove('active');
-            if (window.CrazyGames && window.CrazyGames.SDK) {
-                window.CrazyGames.SDK.game.gameplayStart();
-            }
+            this.gamePaused = false; this.gameState = 'playing';
+            this.hideAllPanels();
+            if (window.CrazyGames && window.CrazyGames.SDK) window.CrazyGames.SDK.game.gameplayStart();
         }
     }
 
     goToMenu() {
         this.gameState = 'menu';
-        this.gameRunning = false;
-        this.gamePaused = false;
         document.getElementById('mainMenu').style.display = 'flex';
         document.getElementById('gameOverScreen').style.display = 'none';
-        document.getElementById('pauseMenuOverlay').classList.remove('active');
+        this.hideAllPanels();
         this.audioManager.playMenuMusic();
-        this.updateLeaderboard();
-        this.updateMenuRankDisplay();
-        if (window.CrazyGames && window.CrazyGames.SDK) {
-            window.CrazyGames.SDK.game.gameplayStop();
-        }
-    }
-
-    // Rewarded ads removed
-
-
-    updateMenuRankDisplay() {
-        const highScoreRank = this.getHighScoreRank();
-        document.getElementById('menuRankIcon').textContent = highScoreRank.icon;
-        document.getElementById('menuRankText').textContent = highScoreRank.name;
-        document.getElementById('menuRankText').style.color = highScoreRank.color;
-    }
-
-    showSettings() {
-        document.getElementById('settingsOverlay').classList.add('active');
-        if (window.CrazyGames && window.CrazyGames.SDK && this.gameState === 'playing') {
-            window.CrazyGames.SDK.game.gameplayStop();
-        }
-    }
-
-    hideSettings() {
-        document.getElementById('settingsOverlay').classList.remove('active');
-        if (window.CrazyGames && window.CrazyGames.SDK && this.gameState === 'playing') {
-            window.CrazyGames.SDK.game.gameplayStart();
-        }
-    }
-
-    showLeaderboard() {
-        this.updateLeaderboard();
-        document.getElementById('leaderboardOverlay').classList.add('active');
-    }
-
-    hideLeaderboard() {
-        document.getElementById('leaderboardOverlay').classList.remove('active');
-    }
-
-    showAbout() {
-        document.getElementById('aboutOverlay').classList.add('active');
-    }
-
-    hideAbout() {
-        document.getElementById('aboutOverlay').classList.remove('active');
-    }
-
-    showAchievements() {
-        this.updateAchievementsDisplay();
-        document.getElementById('achievementsOverlay').classList.add('active');
-    }
-
-    hideAchievements() {
-        document.getElementById('achievementsOverlay').classList.remove('active');
-    }
-
-    updateAchievementsDisplay() {
-        const container = document.getElementById('achievementsEntries');
-        container.innerHTML = '';
-
-        const achievementKeys = Object.keys(this.achievements);
-        if (achievementKeys.length === 0) {
-            const noAchievements = document.createElement('div');
-            noAchievements.style.cssText = 'text-align: center; padding: 20px; color: #aaa;';
-            noAchievements.textContent = 'No achievements yet. Keep playing!';
-            container.appendChild(noAchievements);
-            return;
-        }
-
-        achievementKeys.forEach((key) => {
-            const achievement = this.achievements[key];
-            const entry = document.createElement('div');
-            entry.className = 'achievement-entry';
-            entry.style.cssText = `
-                padding: 12px;
-                margin: 8px 0;
-                background: ${achievement.unlocked ? 'rgba(255, 215, 0, 0.15)' : 'rgba(100, 100, 100, 0.15)'};
-                border: 2px solid ${achievement.unlocked ? '#FFD700' : '#666'};
-                border-radius: 8px;
-                opacity: ${achievement.unlocked ? '1' : '0.6'};
-            `;
-            entry.innerHTML = `
-                <div style="display: flex; align-items: center; gap: 12px;">
-                    <div style="font-size: 28px;">${achievement.icon}</div>
-                    <div style="flex: 1;">
-                        <div style="font-weight: bold; font-size: 14px; color: #fff;">${achievement.name}</div>
-                        <div style="font-size: 12px; color: #aaa;">${achievement.desc}</div>
-                    </div>
-                    <div style="font-size: 20px;">${achievement.unlocked ? '✓' : '🔒'}</div>
-                </div>
-            `;
-            container.appendChild(entry);
-        });
-    }
-
-    updateLeaderboard() {
-        const scores = this.getTopScores();
-        const container = document.getElementById('leaderboardEntries');
-        container.innerHTML = '';
-
-        if (scores.length === 0) {
-            const noScores = document.createElement('div');
-            noScores.style.textAlign = 'center';
-            noScores.style.padding = '20px';
-            noScores.style.color = '#aaa';
-            noScores.textContent = 'No scores yet. Play to get on the leaderboard!';
-            container.appendChild(noScores);
-            return;
-        }
-
-        scores.forEach((scoreData, index) => {
-            const entry = document.createElement('div');
-            entry.className = 'leaderboard-entry';
-
-            let medals = ['🥇', '🥈', '🥉'];
-            let medal = index < 3 ? medals[index] : `#${index + 1}`;
-
-            const difficultyEmoji = { 'veryeasy': '😌', 'easy': '🎮', 'normal': '⚡', 'hard': '🔥', 'extreme': '💀' };
-            const diffIcon = difficultyEmoji[scoreData.difficulty] || '🎮';
-
-            entry.innerHTML = `
-                <span class="leaderboard-rank">${medal}</span>
-                <span style="flex: 1; text-align: left; padding-left: 10px;"><strong>Player ${index + 1}</strong><br/><span style="font-size: 11px; color: #aaa;">${diffIcon} ${scoreData.difficulty || 'normal'}</span></span>
-                <span class="leaderboard-score">${scoreData.score}</span>
-            `;
-            container.appendChild(entry);
-        });
+        if (window.CrazyGames && window.CrazyGames.SDK) window.CrazyGames.SDK.game.gameplayStop();
     }
 
     update(dt = 1) {
-        if (!this.gameRunning || this.gamePaused) return;
+        if (this.gameState !== 'playing' || this.gamePaused) return;
+
+        let gameSpeed = 1;
+        if (this.activePowerUps.slowMotion) gameSpeed = 0.5;
+        if (this.activePowerUps.speedBoost) gameSpeed = 1.5;
 
         this.frameCount += dt;
+        this.bird.update(dt, this.activePowerUps.slowMotion);
 
-        // Cap particles count to prevent memory leak
-        if (this.particles.length > 500) {
-            this.particles.splice(0, 100);
-        }
-
-        // Cap power-ups count
-        if (this.powerUps && this.powerUps.length > 100) {
-            this.powerUps.splice(0, 10);
-        }
-
-        // Cap score floaters
-        if (this.scoreFloaters.length > 100) {
-            this.scoreFloaters.splice(0, 10);
-        }
-
-        // Update screen shake
-        if (this.screenShake > 0) {
-            this.screenShake = Math.max(0, this.screenShake - dt);
-        }
-
-        // Update bird with trail effect
-        this.bird.update(dt);
-
-        // Add bird trail particles
-        if (this.particlesEnabled && Math.floor(this.frameCount) % 3 === 0 && Math.floor(this.frameCount) !== Math.floor(this.frameCount - dt)) {
-            const colorData = this.bird.characterColors[this.bird.character];
-            const trailColor = colorData?.body || '#FFD700';
-            this.particles.push(new Particle(
-                this.bird.x - 10,
-                this.bird.y,
-                -1,
-                0,
-                trailColor,
-                15
-            ));
-        }
-
-        // Update difficulty progression
-        this.updateDifficulty();
-
-        // Update score floaters
-        for (let i = this.scoreFloaters.length - 1; i >= 0; i--) {
-            this.scoreFloaters[i].y -= 2 * dt;
-            this.scoreFloaters[i].alpha -= 0.02 * dt;
-            if (this.scoreFloaters[i].alpha <= 0) {
-                this.scoreFloaters.splice(i, 1);
-            }
+        // Trail particles
+        if (this.particlesEnabled && Math.floor(this.frameCount) % 2 === 0) {
+            this.particles.push(new Particle(this.bird.x - 15, this.bird.y, -2, (Math.random()-0.5), 'rgba(0, 242, 254, 0.5)', 20));
         }
 
         // Check bounds
-        if (this.bird.y > this.canvas.height || this.bird.y < 0) {
-            this.endGame();
-            return;
+        if (this.bird.y > this.canvas.height || this.bird.y < 0) { this.endGame(); return; }
+
+        // Spawn Pillars
+        if (Math.floor(this.frameCount) % this.difficultySettings.spawnRate === 0 && Math.floor(this.frameCount) !== Math.floor(this.frameCount - dt)) {
+            this.generatePillar();
+            // Randomly spawn power-ups or coins
+            if (Math.random() < 0.3) this.spawnPowerUp();
         }
 
-        // Generate pipes - dynamic spawn rate based on difficulty
-        const spawnRate = this.difficultySettings.spawnRate || 160;
-        if (Math.floor(this.frameCount) % spawnRate === 0 && Math.floor(this.frameCount) !== Math.floor(this.frameCount - dt)) {
-            this.generatePipe();
-        }
-
-        // Update pipes
-        let speedMultiplier = this.gameSpeedMultiplier;
-        if (this.activePowerUps.slowMotion) {
-            speedMultiplier = this.gameSpeedMultiplier * 0.5;
-        } else if (this.activePowerUps.speedBoost) {
-            speedMultiplier = this.gameSpeedMultiplier * 1.3;
-        }
-
+        // Update Pillars
         for (let i = this.pipes.length - 1; i >= 0; i--) {
-            this.pipes[i].speed = 3 * speedMultiplier;
-            this.pipes[i].update(dt);
+            this.pipes[i].update(dt, gameSpeed);
 
-            // Check collision
-            if (this.pipes[i].collidesWith(this.bird)) {
-                if (!this.activePowerUps.shield && !this.activePowerUps.ghost) {
-                    this.audioManager.playCollisionSound();
-                    this.createExplosionParticles(this.bird.x, this.bird.y);
-                    this.screenShake = 10;
-                    this.screenShakeIntensity = 5;
-                    this.consecutiveScores = 0;
-                    this.comboMultiplier = 1;
-                    this.endGame();
-                    return;
-                } else if (this.activePowerUps.shield) {
-                    this.audioManager.playShieldActivateSound();
+            if (!this.activePowerUps.ghost && this.pipes[i].collidesWith(this.bird)) {
+                if (this.activePowerUps.shield) {
                     delete this.activePowerUps.shield;
-                    this.createExplosionParticles(this.bird.x, this.bird.y);
-                    this.screenShake = 5;
-                    this.pipes[i].passed = true; // Mark as passed to avoid re-collision
-                } else if (this.activePowerUps.ghost) {
-                    this.activePowerUps.ghost.uses--;
-                    if (this.activePowerUps.ghost.uses <= 0) {
-                        delete this.activePowerUps.ghost;
-                    }
-                    this.pipes[i].passed = true; // Mark as passed to avoid re-collision
+                    this.pipes.splice(i, 1);
+                    this.scoreFloaters.push(new Floater(this.bird.x, this.bird.y, "SHIELD BROKEN", "#FFD700"));
+                    continue;
                 }
+                this.endGame(); return;
             }
 
-            // Check score - pipes passed completely
             if (!this.pipes[i].passed && this.pipes[i].x + this.pipes[i].width < this.bird.x) {
                 this.pipes[i].passed = true;
-                this.pipesMissed++;
+                let points = 1 * this.comboMultiplier;
+                if (this.activePowerUps.doublePoints) points *= 2;
+                this.score += points;
                 this.consecutiveScores++;
-                this.comboMultiplier = Math.min(1 + (this.consecutiveScores * 0.1), 3);
-                const points = this.activePowerUps.doublePoints ? 2 : 1;
-                const finalScore = Math.floor(points * this.comboMultiplier);
-                this.score += finalScore;
                 this.sessionStats.pipesAvoided++;
+
+                // Combo logic
+                if (this.consecutiveScores % 5 === 0) {
+                    this.comboMultiplier = Math.min(5, this.comboMultiplier + 1);
+                    this.scoreFloaters.push(new Floater(this.bird.x, this.bird.y - 40, `COMBO x${this.comboMultiplier}`, "#00f2fe"));
+                }
+
                 this.audioManager.playPointSound();
-                this.createScoreParticles(this.bird.x, this.bird.y);
-                this.createScoreFloater(this.bird.x, this.bird.y, `+${finalScore}`);
-
-                // Bonus for high combos
-                if (this.consecutiveScores % 5 === 0 && this.consecutiveScores > 0) {
-                    this.audioManager.playLevelUpSound();
-                    this.audioManager.playComboSound();
-                    this.createComboBonusParticles();
-                    this.createScoreFloater(this.canvas.width / 2, this.canvas.height / 2, `COMBO x${this.consecutiveScores}!`);
-                    if (window.CrazyGames && window.CrazyGames.SDK && this.consecutiveScores >= 10) {
-                        window.CrazyGames.SDK.game.happytime();
-                    }
-                }
-
-                // Track best combo
-                if (this.consecutiveScores > this.sessionStats.bestCombo) {
-                    this.sessionStats.bestCombo = this.consecutiveScores;
-                }
+                if (this.score % 10 === 0 && window.CrazyGames?.SDK) window.CrazyGames.SDK.game.happytime();
             }
-
-            // Remove off-screen pipes
-            if (this.pipes[i].isOffScreen()) {
-                this.pipes.splice(i, 1);
-            }
+            if (this.pipes[i].isOffScreen()) this.pipes.splice(i, 1);
         }
 
-        // Update power-ups
-        for (let key in this.activePowerUps) {
-            this.activePowerUps[key].duration -= dt;
-            if (this.activePowerUps[key].duration <= 0) {
-                delete this.activePowerUps[key];
+        // Update Powerups
+        for (let i = this.powerUps.length - 1; i >= 0; i--) {
+            const p = this.powerUps[i];
+            p.update(dt, gameSpeed);
+
+            // Magnet logic
+            if (this.activePowerUps.magnet && (p.type === 'coin')) {
+                const dx = this.bird.x - p.x;
+                const dy = this.bird.y - p.y;
+                const dist = Math.sqrt(dx*dx + dy*dy);
+                if (dist < 150) {
+                    p.x += (dx / dist) * 8 * dt;
+                    p.y += (dy / dist) * 8 * dt;
+                }
             }
+
+            // Collision
+            if (Math.abs(p.x - this.bird.x) < 30 && Math.abs(p.y - this.bird.y) < 30) {
+                this.applyPowerUp(p.type);
+                this.powerUps.splice(i, 1);
+                continue;
+            }
+            if (p.x < -50) this.powerUps.splice(i, 1);
         }
 
-        // Update particles
+        // Power-up durations
+        for (const type in this.activePowerUps) {
+            this.activePowerUps[type] -= dt;
+            if (this.activePowerUps[type] <= 0) delete this.activePowerUps[type];
+        }
+
+        // Update others
         for (let i = this.particles.length - 1; i >= 0; i--) {
             this.particles[i].update(dt);
-            if (this.particles[i].life <= 0) {
-                this.particles.splice(i, 1);
-            }
+            if (this.particles[i].life <= 0) this.particles.splice(i, 1);
         }
-
-        // Randomly spawn power-ups with increased frequency
-        if (Math.random() < 0.015 * dt) {
-            this.spawnPowerUp();
+        for (let i = this.scoreFloaters.length - 1; i >= 0; i--) {
+            this.scoreFloaters[i].update(dt);
+            if (this.scoreFloaters[i].life <= 0) this.scoreFloaters.splice(i, 1);
         }
     }
 
-    createScoreFloater(x, y, text) {
-        this.scoreFloaters.push({
-            x: x,
-            y: y,
-            text: text,
-            alpha: 1,
-            vx: (Math.random() - 0.5) * 2
-        });
-    }
-
-    generatePipe() {
-        const gapSize = this.difficultySettings ? this.difficultySettings.gapSize : 180;
-        // More intelligent gap positioning for better balance
-        const minGap = 75;
-        const maxGap = this.canvas.height - gapSize - 75;
-        const gap = Math.random() * (maxGap - minGap) + minGap;
-        this.pipes.push(new Pipe(this.canvas.width, gap, gapSize));
+    generatePillar() {
+        const gapSize = this.difficultySettings.gapSize;
+        const gap = Math.random() * (this.canvas.height - gapSize - 150) + 75;
+        this.pipes.push(new Pillar(this.canvas.width, gap, gapSize));
     }
 
     spawnPowerUp() {
-        const types = Object.keys(this.powerUpTypes).filter(t => t !== 'coin');
-        // 40% chance for coin, 60% for other power-ups
-        const randomType = Math.random() < 0.4 ? 'coin' : types[Math.floor(Math.random() * types.length)];
-        const powerUp = {
-            type: randomType,
-            x: this.canvas.width,
-            y: Math.random() * (this.canvas.height - 80) + 40,
-            width: 30,
-            height: 30,
-            speed: 3,
-            rotation: 0
-        };
-
-        if (!this.powerUps) this.powerUps = [];
-        this.powerUps.push(powerUp);
+        const types = Object.keys(this.powerUpTypes);
+        const type = types[Math.floor(Math.random() * types.length)];
+        const y = Math.random() * (this.canvas.height - 100) + 50;
+        this.powerUps.push(new PowerUp(this.canvas.width + 100, y, type, this.powerUpTypes[type]));
     }
 
-    createScoreParticles(x, y) {
-        if (!this.particlesEnabled) return;
-        for (let i = 0; i < 8; i++) {
-            const angle = (Math.PI * 2 * i) / 8;
-            const speed = 3;
-            this.particles.push(new Particle(
-                x, y,
-                Math.cos(angle) * speed,
-                Math.sin(angle) * speed,
-                '#FFD700',
-                30
-            ));
+    applyPowerUp(type) {
+        if (type === 'coin') {
+            this.coins++;
+            this.sessionStats.totalCoins++;
+            this.scoreFloaters.push(new Floater(this.bird.x, this.bird.y, "+1 COIN", "#FFD700"));
+            this.audioManager.playCoinCollectSound();
+            return;
         }
-    }
 
-    createComboBonusParticles() {
-        if (!this.particlesEnabled) return;
-        for (let i = 0; i < 25; i++) {
-            const angle = Math.random() * Math.PI * 2;
-            const speed = 2 + Math.random() * 3;
-            this.particles.push(new Particle(
-                this.canvas.width / 2, this.canvas.height / 2,
-                Math.cos(angle) * speed,
-                Math.sin(angle) * speed,
-                i % 2 === 0 ? '#FFD700' : '#FFA500',
-                50
-            ));
-        }
-    }
+        this.activePowerUps[type] = this.powerUpTypes[type].duration;
+        this.scoreFloaters.push(new Floater(this.bird.x, this.bird.y, type.toUpperCase(), this.powerUpTypes[type].color));
 
-    createExplosionParticles(x, y) {
-        if (!this.particlesEnabled) return;
-        for (let i = 0; i < 20; i++) {
-            const angle = Math.random() * Math.PI * 2;
-            const speed = 2 + Math.random() * 4;
-            this.particles.push(new Particle(
-                x, y,
-                Math.cos(angle) * speed,
-                Math.sin(angle) * speed,
-                '#FF' + Math.floor(Math.random() * 256).toString(16).padStart(2, '0') + '00',
-                50
-            ));
+        switch(type) {
+            case 'shield': this.audioManager.playShieldActivateSound(); break;
+            case 'slowMotion': this.audioManager.playSlowMotionSound(); break;
+            case 'magnet': this.audioManager.playMagnetSound(); break;
+            case 'speedBoost': this.audioManager.playSpeedBoostSound(); break;
+            default: this.audioManager.playPowerUpSound(); break;
         }
     }
 
     draw() {
-        // Apply screen shake
-        let hasShake = false;
-        if (this.screenShake > 0) {
-            const offsetX = (Math.random() - 0.5) * this.screenShakeIntensity;
-            const offsetY = (Math.random() - 0.5) * this.screenShakeIntensity;
-            this.ctx.translate(offsetX, offsetY);
-            hasShake = true;
-        }
-
-        // Clear canvas
-        this.ctx.fillStyle = '#87CEEB';
+        this.ctx.fillStyle = '#0f0f1e';
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
-        // Draw background mountains and huts
-        this.drawMountains();
-        this.drawHuts();
+        // Background Grid
+        this.ctx.strokeStyle = 'rgba(0, 242, 254, 0.05)';
+        this.ctx.lineWidth = 1;
+        for(let x = 0; x < this.canvas.width; x += 40) { this.ctx.beginPath(); this.ctx.moveTo(x, 0); this.ctx.lineTo(x, this.canvas.height); this.ctx.stroke(); }
+        for(let y = 0; y < this.canvas.height; y += 40) { this.ctx.beginPath(); this.ctx.moveTo(0, y); this.ctx.lineTo(this.canvas.width, y); this.ctx.stroke(); }
 
-        // Draw background clouds
-        this.drawClouds();
+        if (this.gameState === 'menu') return;
 
-        if (this.gameState === 'menu') {
-            // Restore translation if shake was applied
-            if (hasShake) {
-                this.ctx.setTransform(1, 0, 0, 1, 0, 0);
-            }
-            return;
-        }
-
-        // Draw pipes
-        for (const pipe of this.pipes) {
-            pipe.draw(this.ctx, this.canvas.height);
-        }
-
-        // Draw power-ups
-        if (this.powerUps && this.powerUps.length > 0) {
-            const dt = this.lastDt || 1;
-            for (let i = this.powerUps.length - 1; i >= 0; i--) {
-                const pu = this.powerUps[i];
-                pu.x -= pu.speed * dt;
-                pu.rotation = (pu.rotation + 0.05 * dt) % (Math.PI * 2);
-
-                // Magnet attraction logic
-                if (this.activePowerUps.magnet && pu.type === 'coin') {
-                    const dx = this.bird.x - pu.x;
-                    const dy = this.bird.y - pu.y;
-                    const distance = Math.sqrt(dx * dx + dy * dy);
-                    if (distance < 150) {
-                        const attractForce = 2 * dt;
-                        pu.x += (dx / distance) * attractForce;
-                        pu.y += (dy / distance) * attractForce;
-                    }
-                }
-
-                // Check collision with bird
-                if (Math.abs(pu.x - this.bird.x) < 30 && Math.abs(pu.y - this.bird.y) < 30) {
-                    this.activatePowerUp(pu.type);
-                    if (pu.type === 'coin') {
-                        this.coins += 10;
-                        this.sessionStats.totalCoins += 10;
-                        this.audioManager.playCoinCollectSound();
-                    } else {
-                        this.audioManager.playPowerUpSound();
-                    }
-                    this.createPowerUpParticles(pu.x, pu.y);
-                    this.createScoreFloater(pu.x, pu.y, pu.type === 'coin' ? '+10 🪙' : `+${pu.type}`);
-                    this.powerUps.splice(i, 1);
-                    continue;
-                }
-
-                // Draw power-up with rotation
-                const color = this.powerUpTypes[pu.type].color;
-                this.ctx.save();
-                this.ctx.translate(pu.x, pu.y);
-                this.ctx.rotate(pu.rotation);
-
-                // Glow effect
-                this.ctx.fillStyle = color + '40';
-                this.ctx.beginPath();
-                this.ctx.arc(0, 0, pu.width / 2 + 8, 0, Math.PI * 2);
-                this.ctx.fill();
-
-                // Main circle
-                this.ctx.fillStyle = color;
-                this.ctx.beginPath();
-                this.ctx.arc(0, 0, pu.width / 2, 0, Math.PI * 2);
-                this.ctx.fill();
-
-                // Draw border
-                this.ctx.strokeStyle = 'rgba(255,255,255,0.5)';
-                this.ctx.lineWidth = 2;
-                this.ctx.beginPath();
-                this.ctx.arc(0, 0, pu.width / 2, 0, Math.PI * 2);
-                this.ctx.stroke();
-
-                // Draw emoji/text inside
-                this.ctx.fillStyle = '#fff';
-                this.ctx.font = 'bold 16px Arial';
-                this.ctx.textAlign = 'center';
-                this.ctx.textBaseline = 'middle';
-                const symbols = { shield: '🛡', slowMotion: '⏱', magnet: '🧲', doublePoints: '2x', ghost: '👻', speedBoost: '⚡', coin: '💰' };
-                if (symbols[pu.type]) {
-                    this.ctx.fillText(symbols[pu.type], 0, 0);
-                }
-
-                this.ctx.restore();
-
-                // Remove if off-screen
-                if (pu.x + pu.width < -10) {
-                    this.powerUps.splice(i, 1);
-                }
-            }
-        }
-
-        // Draw particles
-        for (const particle of this.particles) {
-            particle.draw(this.ctx);
-        }
-
-        // Draw score floaters
-        for (const floater of this.scoreFloaters) {
-            this.ctx.globalAlpha = floater.alpha;
-            this.ctx.fillStyle = floater.text.includes('COMBO') ? '#FFD700' : '#FFA500';
-            this.ctx.font = floater.text.includes('COMBO') ? 'bold 20px Arial' : 'bold 16px Arial';
-            this.ctx.textAlign = 'center';
-            this.ctx.textBaseline = 'middle';
-            this.ctx.fillText(floater.text, floater.x + floater.vx * 5, floater.y);
-            this.ctx.globalAlpha = 1;
-        }
-
-        // Draw bird
+        for (const pipe of this.pipes) pipe.draw(this.ctx, this.canvas.height);
+        for (const p of this.powerUps) p.draw(this.ctx);
+        for (const particle of this.particles) particle.draw(this.ctx);
         this.bird.draw(this.ctx);
+        for (const f of this.scoreFloaters) f.draw(this.ctx);
 
-        // Restore transform if screen shake was applied
-        if (hasShake) {
-            this.ctx.setTransform(1, 0, 0, 1, 0, 0);
-        }
-
-        // Update UI elements
         this.updateUIDisplay();
     }
 
     updateUIDisplay() {
-        // Only update if elements exist
-        try {
-            const scoreValue = document.getElementById('scoreValue');
-            const highScore = document.getElementById('highScoreValue');
-            const comboValue = document.getElementById('comboValue');
-            const coinsValue = document.getElementById('coinsValue');
-            const difficultyInd = document.getElementById('difficultyIndicator');
-            const display = document.getElementById('powerUpsDisplay');
+        document.getElementById('scoreValue').textContent = Math.floor(this.score);
+        document.getElementById('highScoreValue').textContent = this.highScore;
+        document.getElementById('comboValue').textContent = `x${this.comboMultiplier}`;
+        document.getElementById('coinsValue').textContent = this.coins;
+        document.getElementById('difficultyIndicator').textContent = this.difficultySettings.name.toUpperCase();
 
-            if (!scoreValue || !highScore || !comboValue || !coinsValue || !difficultyInd || !display) {
-                return;
+        // Power-ups display
+        const container = document.getElementById('powerUpsDisplay');
+        if (container) {
+            container.innerHTML = '';
+            for (const type in this.activePowerUps) {
+                const div = document.createElement('div');
+                div.className = 'power-up-indicator';
+                div.style.color = this.powerUpTypes[type].color;
+                div.textContent = `${this.powerUpTypes[type].emoji} ${Math.ceil(this.activePowerUps[type] / 60)}s`;
+                container.appendChild(div);
             }
-
-            // Update only if values have changed
-            if (scoreValue.textContent !== this.score.toString()) {
-                scoreValue.textContent = this.score;
-            }
-            if (highScore.textContent !== this.highScore.toString()) {
-                highScore.textContent = this.highScore;
-            }
-            const comboText = 'x' + this.comboMultiplier.toFixed(1);
-            if (comboValue.textContent !== comboText) {
-                comboValue.textContent = comboText;
-            }
-            if (coinsValue.textContent !== this.coins.toString()) {
-                coinsValue.textContent = this.coins;
-            }
-            const diffText = this.difficultySettings.name.toUpperCase();
-            if (difficultyInd.textContent !== diffText) {
-                difficultyInd.textContent = diffText;
-            }
-
-            // Update power-ups display
-            const powerUpKeys = Object.keys(this.activePowerUps);
-            if (display.children.length !== powerUpKeys.length) {
-                display.innerHTML = '';
-                for (let key of powerUpKeys) {
-                    const pu = this.activePowerUps[key];
-                    const icons = { shield: '🛡', slowMotion: '⏱', magnet: '🧲', doublePoints: '2x', ghost: '👻', speedBoost: '⚡', coin: '💰' };
-                    const indicator = document.createElement('div');
-                    indicator.className = 'power-up-indicator';
-                    indicator.textContent = `${icons[key]} ${Math.ceil(pu.duration / 10)}s`;
-                    display.appendChild(indicator);
-                }
-            }
-        } catch (e) {
-            // Silent fail - DOM elements may not exist in some contexts
-        }
-    }
-
-    drawClouds() {
-        this.ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
-        const cloudOffset = (this.frameCount * 0.3) % this.canvas.width;
-
-        for (let i = 0; i < 3; i++) {
-            const x = (cloudOffset + i * 200 - this.canvas.width) % (this.canvas.width + 100);
-            const y = 50 + i * 60;
-            this.drawCloud(x, y, 40);
-        }
-    }
-
-    drawCloud(x, y, size) {
-        // Main cloud body
-        this.ctx.beginPath();
-        this.ctx.arc(x, y, size, 0, Math.PI * 2);
-        this.ctx.arc(x + size * 1.5, y, size * 0.8, 0, Math.PI * 2);
-        this.ctx.arc(x + size * 3, y, size, 0, Math.PI * 2);
-        this.ctx.fill();
-
-        // Cloud highlight (lighter top)
-        this.ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
-        this.ctx.beginPath();
-        this.ctx.arc(x + size * 1.5, y - size * 0.3, size * 1.2, 0, Math.PI);
-        this.ctx.fill();
-    }
-
-    drawMountains() {
-        // Far mountains (darkest, smallest)
-        this.ctx.fillStyle = '#5A7A6F';
-        this.ctx.beginPath();
-        this.ctx.moveTo(0, 480);
-        this.ctx.lineTo(60, 420);
-        this.ctx.lineTo(120, 480);
-        this.ctx.lineTo(180, 440);
-        this.ctx.lineTo(240, 480);
-        this.ctx.lineTo(300, 450);
-        this.ctx.lineTo(360, 480);
-        this.ctx.lineTo(400, 460);
-        this.ctx.lineTo(400, 480);
-        this.ctx.lineTo(0, 480);
-        this.ctx.fill();
-
-        // Snow caps on mountains
-        this.ctx.fillStyle = '#FFFFFF';
-        this.ctx.beginPath();
-        this.ctx.moveTo(55, 420);
-        this.ctx.lineTo(65, 425);
-        this.ctx.lineTo(60, 430);
-        this.ctx.fill();
-        this.ctx.beginPath();
-        this.ctx.moveTo(175, 440);
-        this.ctx.lineTo(185, 445);
-        this.ctx.lineTo(180, 450);
-        this.ctx.fill();
-
-        // Middle mountains (medium)
-        this.ctx.fillStyle = '#6B8C7C';
-        this.ctx.beginPath();
-        this.ctx.moveTo(0, 520);
-        this.ctx.lineTo(80, 460);
-        this.ctx.lineTo(160, 520);
-        this.ctx.lineTo(240, 480);
-        this.ctx.lineTo(320, 520);
-        this.ctx.lineTo(400, 500);
-        this.ctx.lineTo(400, 520);
-        this.ctx.lineTo(0, 520);
-        this.ctx.fill();
-
-        // Snow caps middle
-        this.ctx.fillStyle = '#FFFEF5';
-        this.ctx.beginPath();
-        this.ctx.moveTo(75, 460);
-        this.ctx.lineTo(85, 470);
-        this.ctx.lineTo(75, 475);
-        this.ctx.fill();
-    }
-
-    drawHuts() {
-        // Hut 1
-        this.drawHut(70, 530);
-        // Hut 2
-        this.drawHut(320, 545);
-    }
-
-    drawHut(x, y) {
-        // Shadow
-        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.15)';
-        this.ctx.beginPath();
-        this.ctx.ellipse(x, y + 40, 35, 8, 0, 0, Math.PI * 2);
-        this.ctx.fill();
-
-        // Hut body (rectangle) with gradient effect
-        this.ctx.fillStyle = '#9B7653';
-        this.ctx.fillRect(x - 22, y, 44, 25);
-
-        // Darker side for 3D effect
-        this.ctx.fillStyle = '#7A5A3F';
-        this.ctx.fillRect(x + 15, y, 7, 25);
-
-        // Hut roof (triangle) - brown
-        this.ctx.fillStyle = '#B8860B';
-        this.ctx.beginPath();
-        this.ctx.moveTo(x - 27, y);
-        this.ctx.lineTo(x, y - 18);
-        this.ctx.lineTo(x + 27, y);
-        this.ctx.fill();
-
-        // Roof ridge highlight
-        this.ctx.strokeStyle = '#D4AF37';
-        this.ctx.lineWidth = 1.5;
-        this.ctx.beginPath();
-        this.ctx.moveTo(x - 20, y - 8);
-        this.ctx.lineTo(x, y - 16);
-        this.ctx.lineTo(x + 20, y - 8);
-        this.ctx.stroke();
-
-        // Door
-        this.ctx.fillStyle = '#654321';
-        this.ctx.fillRect(x - 7, y + 12, 14, 13);
-
-        // Door knob
-        this.ctx.fillStyle = '#FFD700';
-        this.ctx.beginPath();
-        this.ctx.arc(x + 4, y + 18, 1.5, 0, Math.PI * 2);
-        this.ctx.fill();
-
-        // Window 1
-        this.ctx.fillStyle = '#87CEEB';
-        this.ctx.fillRect(x - 18, y + 6, 8, 8);
-        this.ctx.strokeStyle = '#654321';
-        this.ctx.lineWidth = 1;
-        this.ctx.strokeRect(x - 18, y + 6, 8, 8);
-        // Window panes
-        this.ctx.beginPath();
-        this.ctx.moveTo(x - 14, y + 6);
-        this.ctx.lineTo(x - 14, y + 14);
-        this.ctx.moveTo(x - 18, y + 10);
-        this.ctx.lineTo(x - 10, y + 10);
-        this.ctx.stroke();
-
-        // Window 2
-        this.ctx.fillStyle = '#87CEEB';
-        this.ctx.fillRect(x + 10, y + 6, 8, 8);
-        this.ctx.strokeStyle = '#654321';
-        this.ctx.strokeRect(x + 10, y + 6, 8, 8);
-        // Window panes
-        this.ctx.beginPath();
-        this.ctx.moveTo(x + 14, y + 6);
-        this.ctx.lineTo(x + 14, y + 14);
-        this.ctx.moveTo(x + 10, y + 10);
-        this.ctx.lineTo(x + 18, y + 10);
-        this.ctx.stroke();
-    }
-
-    activatePowerUp(type) {
-        const settings = this.powerUpTypes[type];
-
-        if (type === 'shield') {
-            this.activePowerUps.shield = { duration: settings.duration };
-            this.audioManager.playShieldActivateSound();
-            this.createExplosionParticles(this.bird.x, this.bird.y);
-        } else if (type === 'slowMotion') {
-            this.activePowerUps.slowMotion = { duration: settings.duration };
-            this.audioManager.playPowerUpSound();
-        } else if (type === 'magnet') {
-            this.activePowerUps.magnet = { duration: settings.duration };
-            this.audioManager.playPowerUpSound();
-        } else if (type === 'doublePoints') {
-            this.activePowerUps.doublePoints = { duration: settings.duration };
-            this.audioManager.playLevelUpSound();
-        } else if (type === 'ghost') {
-            this.activePowerUps.ghost = { duration: settings.duration, uses: 2 };
-            this.audioManager.playPowerUpSound();
-        } else if (type === 'speedBoost') {
-            this.activePowerUps.speedBoost = { duration: settings.duration };
-            this.audioManager.playLevelUpSound();
-        }
-    }
-
-    createPowerUpParticles(x, y) {
-        if (!this.particlesEnabled) return;
-        for (let i = 0; i < 16; i++) {
-            const angle = (Math.PI * 2 * i) / 16;
-            const speed = 3.5;
-            this.particles.push(new Particle(
-                x, y,
-                Math.cos(angle) * speed,
-                Math.sin(angle) * speed,
-                '#FFD700',
-                30
-            ));
         }
     }
 
     endGame() {
-        this.gameRunning = false;
         this.gameState = 'gameover';
-
         if (window.CrazyGames && window.CrazyGames.SDK) {
             window.CrazyGames.SDK.game.gameplayStop();
-            // Request midroll ad
-            const callbacks = {
-                adFinished: () => {
-                    console.log("End midgame ad");
-                    this.audioManager.unmuteAll();
-                },
-                adError: (error) => {
-                    console.log("Error midgame ad", error);
-                    this.audioManager.unmuteAll();
-                },
-                adStarted: () => {
-                    console.log("Start midgame ad");
-                    this.audioManager.muteAll();
-                },
-            };
-            window.CrazyGames.SDK.ad.requestAd("midgame", callbacks);
+            window.CrazyGames.SDK.ad.requestAd("midgame", {
+                adFinished: () => this.audioManager.unmuteAll(),
+                adError: () => this.audioManager.unmuteAll(),
+                adStarted: () => this.audioManager.muteAll(),
+            });
         }
-
-        // Play game over sound
         this.audioManager.playGameOverSound();
 
-        // Create explosion particles on game over
-        this.createExplosionParticles(this.bird.x, this.bird.y);
-
-        // Show game over screen with animation
-        const gameOverScreen = document.getElementById('gameOverScreen');
-        gameOverScreen.style.display = 'flex';
-        gameOverScreen.style.animation = 'fadeInScale 0.5s ease-out';
         if (this.score > this.highScore) {
             this.highScore = this.score;
             this.saveHighScore();
-            if (window.CrazyGames && window.CrazyGames.SDK) {
-                window.CrazyGames.SDK.game.happytime();
-            }
-
-            // New high score animation
-            setTimeout(() => {
-                const highScoreEl = document.getElementById('gameOverHighScore');
-                highScoreEl.style.animation = 'none';
-                setTimeout(() => {
-                    highScoreEl.style.animation = 'pulse 0.6s ease-in-out';
-                }, 10);
-            }, 300);
+            if (window.CrazyGames?.SDK) window.CrazyGames.SDK.game.happytime();
         }
 
-        // Save to leaderboard
-        this.saveScore(this.score);
-
-        // Update stats
         this.sessionStats.totalScore += this.score;
-        this.sessionStats.totalCoins += this.coins;
+        this.sessionStats.bestCombo = Math.max(this.sessionStats.bestCombo, this.comboMultiplier);
         this.saveStats();
+        this.updateGameOverScreen();
+    }
 
-        // Check achievements
-        this.checkAchievements();
-
-        // Update game over stats
-        document.getElementById('finalScore').textContent = this.score;
+    updateGameOverScreen() {
+        document.getElementById('gameOverScreen').style.display = 'flex';
+        document.getElementById('finalScore').textContent = Math.floor(this.score);
         document.getElementById('gameOverHighScore').textContent = this.highScore;
         document.getElementById('coinsCollected').textContent = this.coins;
 
-        // Update rank display
-        const currentRank = this.getCurrentRank();
-        const rankDisplay = document.getElementById('rankDisplay');
-        document.getElementById('rankIcon').textContent = currentRank.icon;
-        document.getElementById('rankName').textContent = currentRank.name;
-        document.getElementById('rankName').style.color = currentRank.color;
-        document.getElementById('rankProgress').style.width = this.getRankProgress() + '%';
-        document.getElementById('rankProgress').style.backgroundColor = currentRank.color;
-        rankDisplay.style.borderColor = currentRank.color;
+        // Rank Progress
+        const rank = this.ranks.find(r => this.highScore >= r.minScore && this.highScore <= r.maxScore) || this.ranks[0];
+        document.getElementById('rankIcon').textContent = rank.icon;
+        document.getElementById('rankName').textContent = rank.name;
 
-        // Animate stats appearance
-        setTimeout(() => {
-            document.querySelectorAll('.stat-value').forEach((el, index) => {
-                el.style.animation = `slideInUp 0.4s ease-out ${index * 0.1}s both`;
-            });
-        }, 100);
+        const nextRank = this.ranks[this.ranks.indexOf(rank) + 1];
+        if (nextRank) {
+            const progress = ((this.highScore - rank.minScore) / (nextRank.minScore - rank.minScore)) * 100;
+            document.getElementById('rankProgress').style.width = `${Math.min(100, progress)}%`;
+        } else {
+            document.getElementById('rankProgress').style.width = '100%';
+        }
     }
 
-    loadHighScore() {
-        const saved = localStorage.getItem('flappyBirdHighScore');
-        return saved ? parseInt(saved) : 0;
-    }
-
-    saveHighScore() {
-        localStorage.setItem('flappyBirdHighScore', this.highScore.toString());
-    }
-
-    getTopScores() {
-        const saved = localStorage.getItem('flappyBirdScores');
-        const scores = saved ? JSON.parse(saved) : [];
-        return scores.sort((a, b) => b.score - a.score).slice(0, 10);
-    }
-
-    saveScore(score) {
-        const scores = this.getTopScores();
-        scores.push({
-            score,
-            character: this.bird.character,
-            difficulty: this.difficulty,
-            coins: this.coins,
-            combo: this.sessionStats.bestCombo,
-            timestamp: new Date().toISOString()
-        });
-        localStorage.setItem('flappyBirdScores', JSON.stringify(scores.sort((a, b) => b.score - a.score).slice(0, 20)));
-    }
-
-    getCurrentRank() {
-        return this.ranks.find(rank => this.score >= rank.minScore && this.score <= rank.maxScore) || this.ranks[0];
-    }
-
-    getHighScoreRank() {
-        return this.ranks.find(rank => this.highScore >= rank.minScore && this.highScore <= rank.maxScore) || this.ranks[0];
-    }
-
-    getRankProgress() {
-        const currentRank = this.getCurrentRank();
-        const nextRank = this.ranks[this.ranks.indexOf(currentRank) + 1];
-
-        if (!nextRank) return 100; // Legend rank - 100% progress
-
-        const progress = ((this.score - currentRank.minScore) / (nextRank.minScore - currentRank.minScore)) * 100;
-        return Math.min(progress, 100);
+    updateMenuRankDisplay() {
+        const rank = this.ranks.find(r => this.highScore >= r.minScore && this.highScore <= r.maxScore) || this.ranks[0];
+        document.getElementById('menuRankIcon').textContent = rank.icon;
+        document.getElementById('menuRankText').textContent = rank.name;
     }
 
     gameLoop(timestamp) {
-        if (!this.lastTime) this.lastTime = timestamp;
-        const elapsed = timestamp - this.lastTime;
+        const dt = (timestamp - (this.lastTime || timestamp)) / (1000 / 60);
         this.lastTime = timestamp;
-
-        // Target 60 FPS, so dt is 1 at 60 FPS
-        const dt = elapsed / (1000 / 60);
-        this.lastDt = dt;
-
         this.update(dt);
         this.draw();
         requestAnimationFrame((t) => this.gameLoop(t));
     }
 }
 
-// Initialize game when page loads
-window.addEventListener('DOMContentLoaded', () => {
-    const canvas = document.getElementById('gameCanvas');
-    new Game(canvas);
-});
+window.addEventListener('DOMContentLoaded', () => { new Game(document.getElementById('gameCanvas')); });

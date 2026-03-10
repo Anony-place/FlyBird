@@ -1,16 +1,13 @@
-# Flappy Bird Ultimate 🐦
+# Aero Dash: Sky High 🚀
 
-A modern, feature-rich version of the classic Flappy Bird game built with HTML5 Canvas.
+A high-octane aerial navigation game built with HTML5 Canvas.
 
 ## Features
-- 11 Unique Characters
+- 11 Unique Aero Crafts
 - 5 Difficulty Levels  
 - 7 Power-ups
-- Progressive Ranking System
+- Advanced Pilot Ranking System
 - Responsive Design
-
-PLAY now 
-https://flybird-bwo.pages.dev
 
 ## Technologies
 - HTML5 Canvas
