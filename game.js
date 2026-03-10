@@ -292,13 +292,45 @@ class Game {
         this.resize();
         window.addEventListener('resize', () => this.resize());
 
+        // --- ECOSYSTEM STATE ---
+        this.state = JSON.parse(localStorage.getItem('aeroDashState')) || {
+            coins: 0,
+            gems: 0,
+            level: 1,
+            xp: 0,
+            highScore: 0,
+            unlockedCrafts: ['swift'],
+            selectedCraft: 'swift',
+            upgrades: {
+                shield: 1,
+                magnet: 1,
+                slowmo: 1
+            },
+            stats: {
+                totalTime: 0,
+                totalDist: 0,
+                totalCoins: 0,
+                maxCombo: 0
+            },
+            lastLogin: Date.now(),
+            dailyQuests: this.generateQuests()
+        };
+
         this.characters = [
-            { id: 'swift', name: 'Swift-X', color: '#00f2ff', emoji: '🚀' },
-            { id: 'neon', name: 'Neon-Volt', color: '#ff00ff', emoji: '⚡' },
-            { id: 'emerald', name: 'Emerald-Jet', color: '#00ff88', emoji: '💎' },
-            { id: 'gold', name: 'Midas-1', color: '#ffcc00', emoji: '🏆' }
+            { id: 'swift', name: 'Swift-X', color: '#00f2fe', emoji: '🚀', price: 0 },
+            { id: 'neon', name: 'Neon-Volt', color: '#ff00ff', emoji: '⚡', price: 500 },
+            { id: 'emerald', name: 'Emerald-Jet', color: '#00ff88', emoji: '💎', price: 1200 },
+            { id: 'gold', name: 'Midas-1', color: '#ffcc00', emoji: '🏆', price: 3000 }
         ];
-        this.selectedChar = this.characters[0];
+
+        this.zones = [
+            { id: 'neon', name: 'NEON CITY', color: '#00f2fe', gravity: 0.6, speed: 4.5 },
+            { id: 'void', name: 'DARK VOID', color: '#9d00ff', gravity: 0.8, speed: 5.5 },
+            { id: 'inferno', name: 'INFERNO', color: '#ff4b2b', gravity: 0.5, speed: 7.0 }
+        ];
+        this.currentZoneIdx = 0;
+
+        this.selectedChar = this.characters.find(c => c.id === this.state.selectedCraft) || this.characters[0];
 
         this.craft = new AeroCraft(this.canvas, this.selectedChar.color);
         this.pillars = [];
@@ -309,23 +341,43 @@ class Game {
 
         this.score = 0;
         this.combo = 1;
-        this.totalCoins = parseInt(localStorage.getItem('totalCoins')) || 0;
-        this.highScore = parseInt(localStorage.getItem('highScore')) || 0;
         this.gameState = 'START';
         this.lastTime = 0;
         this.shake = 0;
         this.hitStop = 0;
         this.flash = 0;
-        this.gameSpeed = 4.5;
         this.activePowerups = {};
 
         this.initUI();
         this.initInput();
+        this.refreshLobby();
         requestAnimationFrame((t) => this.loop(t));
 
         setTimeout(() => {
             document.getElementById('startingAnimation').style.display = 'none';
         }, 3000);
+    }
+
+    saveState() {
+        localStorage.setItem('aeroDashState', JSON.stringify(this.state));
+    }
+
+    generateQuests() {
+        const today = new Date().toDateString();
+        if (this.state && this.state.questDate === today) return this.state.dailyQuests;
+
+        const pool = [
+            { id: 1, text: "Collect 50 Energy Cells", goal: 50, reward: 200, type: 'coins' },
+            { id: 2, text: "Reach Score 20 in one run", goal: 20, reward: 500, type: 'xp' },
+            { id: 3, text: "Use 5 Power-ups", goal: 5, reward: 50, type: 'gems' },
+            { id: 4, text: "Fly for 120 seconds", goal: 120, reward: 300, type: 'coins' },
+            { id: 5, text: "Reach x5 Combo", goal: 5, reward: 100, type: 'gems' }
+        ];
+
+        // Pick 3 random quests
+        const selected = pool.sort(() => 0.5 - Math.random()).slice(0, 3);
+        if (this.state) this.state.questDate = today;
+        return selected.map(q => ({ ...q, progress: 0, done: false }));
     }
 
     resize() {
@@ -345,25 +397,135 @@ class Game {
     }
 
     initUI() {
-        const charSelect = document.getElementById('characterSelect');
-        charSelect.innerHTML = '';
-        this.characters.forEach(char => {
-            const div = document.createElement('div');
-            div.className = `character-option ${char.id === this.selectedChar.id ? 'selected' : ''}`;
-            div.innerHTML = `<div style="font-size: 24px">${char.emoji}</div><div>${char.name}</div>`;
-            div.onclick = () => {
-                this.selectedChar = char;
-                this.craft.themeColor = char.color;
-                document.querySelectorAll('.character-option').forEach(el => el.classList.remove('selected'));
-                div.classList.add('selected');
-                document.querySelector('.bird-logo').innerText = char.emoji;
-                if (window.audioManager) window.audioManager.playSound('score');
+        // Tab Logic
+        document.querySelectorAll('.lobby-tab').forEach(tab => {
+            tab.onclick = () => {
+                document.querySelectorAll('.lobby-tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                tab.classList.add('active');
+                document.getElementById(`tab-${tab.dataset.tab}`).classList.add('active');
+                if (window.audioManager) window.audioManager.playSound('flap');
+                if (tab.dataset.tab === 'shop') this.renderShop();
+                if (tab.dataset.tab === 'quests') this.renderQuests();
+                if (tab.dataset.tab === 'stats') this.renderStats();
             };
-            charSelect.appendChild(div);
         });
-        document.getElementById('highScoreValue').innerText = this.highScore;
-        document.getElementById('gameOverHighScore').innerText = this.highScore;
-        document.getElementById('coinsValue').innerText = this.totalCoins;
+
+        // Zone Logic
+        document.querySelector('.prev-zone').onclick = () => this.changeZone(-1);
+        document.querySelector('.next-zone').onclick = () => this.changeZone(1);
+
+        document.getElementById('highScoreValue').innerText = this.state.highScore;
+        document.getElementById('gameOverHighScore').innerText = this.state.highScore;
+    }
+
+    changeZone(dir) {
+        this.currentZoneIdx = (this.currentZoneIdx + dir + this.zones.length) % this.zones.length;
+        const zone = this.zones[this.currentZoneIdx];
+        document.getElementById('currentZoneName').innerText = zone.name;
+        document.getElementById('currentZoneName').style.color = zone.color;
+        if (window.audioManager) window.audioManager.playSound('flap');
+    }
+
+    refreshLobby() {
+        document.getElementById('navCoins').innerText = this.state.coins;
+        document.getElementById('navGems').innerText = this.state.gems;
+        document.getElementById('playerLevel').innerText = this.state.level;
+
+        const xpThreshold = this.state.level * 1000;
+        const xpPercent = (this.state.xp / xpThreshold) * 100;
+        document.getElementById('xpBarFill').style.width = xpPercent + '%';
+
+        document.getElementById('lobbyCraftPreview').innerText = this.selectedChar.emoji;
+        document.getElementById('lobbyCraftPreview').style.filter = `drop-shadow(0 0 30px ${this.selectedChar.color})`;
+
+        const ranks = ['ROOKIE', 'PILOT', 'ACE', 'LEGEND', 'SKY GOD'];
+        const rankIdx = Math.min(ranks.length - 1, Math.floor(this.state.level / 5));
+        document.getElementById('lobbyRankName').innerText = ranks[rankIdx];
+        this.saveState();
+    }
+
+    renderShop() {
+        const craftGrid = document.getElementById('craftShopGrid');
+        craftGrid.innerHTML = '';
+        this.characters.forEach(char => {
+            const isUnlocked = this.state.unlockedCrafts.includes(char.id);
+            const isSelected = this.state.selectedCraft === char.id;
+
+            const item = document.createElement('div');
+            item.className = `shop-item ${isSelected ? 'selected' : ''} ${!isUnlocked ? 'locked' : ''}`;
+            item.innerHTML = `
+                <div class="item-visual">${char.emoji}</div>
+                <div class="item-name">${char.name}</div>
+                <div class="item-price">${isUnlocked ? (isSelected ? 'EQUIPPED' : 'OWNED') : '💰 ' + char.price}</div>
+            `;
+            item.onclick = () => {
+                if (isUnlocked) {
+                    this.state.selectedCraft = char.id;
+                    this.selectedChar = char;
+                    this.craft.themeColor = char.color;
+                } else if (this.state.coins >= char.price) {
+                    this.state.coins -= char.price;
+                    this.state.unlockedCrafts.push(char.id);
+                    if (window.audioManager) window.audioManager.playSound('score');
+                }
+                this.refreshLobby();
+                this.renderShop();
+            };
+            craftGrid.appendChild(item);
+        });
+
+        const upgradeGrid = document.getElementById('upgradeShopGrid');
+        upgradeGrid.innerHTML = '';
+        const upgrades = [
+            { id: 'shield', name: 'Shield Duration', icon: '🛡️' },
+            { id: 'magnet', name: 'Magnet Range', icon: '🧲' },
+            { id: 'slowmo', name: 'Slow-Mo Time', icon: '⏱️' }
+        ];
+        upgrades.forEach(u => {
+            const level = this.state.upgrades[u.id];
+            const price = level * 1000;
+            const item = document.createElement('div');
+            item.className = 'shop-item';
+            item.innerHTML = `
+                <div class="item-visual">${u.icon}</div>
+                <div class="item-name">${u.name}</div>
+                <div class="item-price">💰 ${price} (LVL ${level})</div>
+            `;
+            item.onclick = () => {
+                if (this.state.coins >= price) {
+                    this.state.coins -= price;
+                    this.state.upgrades[u.id]++;
+                    if (window.audioManager) window.audioManager.playSound('score');
+                    this.refreshLobby();
+                    this.renderShop();
+                }
+            };
+            upgradeGrid.appendChild(item);
+        });
+    }
+
+    renderQuests() {
+        const list = document.getElementById('dailyQuestList');
+        list.innerHTML = this.state.dailyQuests.map(q => `
+            <div class="quest-card ${q.done ? 'completed' : ''}">
+                <div class="quest-info">
+                    <div class="quest-title">${q.text}</div>
+                    <div class="quest-progress-container">
+                        <div class="quest-progress-fill" style="width: ${(q.progress / q.goal) * 100}%"></div>
+                    </div>
+                    <div class="quest-reward">+${q.reward} ${q.type.toUpperCase()}</div>
+                </div>
+                <div class="quest-status">${q.done ? '✅' : q.progress + '/' + q.goal}</div>
+            </div>
+        `).join('');
+    }
+
+    renderStats() {
+        document.getElementById('statTime').innerText = Math.floor(this.state.stats.totalTime / 60) + 'm ' + (this.state.stats.totalTime % 60) + 's';
+        document.getElementById('statDist').innerText = Math.floor(this.state.stats.totalDist) + 'm';
+        document.getElementById('statCoins').innerText = this.state.stats.totalCoins;
+        document.getElementById('statCombo').innerText = 'x' + this.state.stats.maxCombo;
     }
 
     initInput() {
@@ -421,7 +583,7 @@ class Game {
                 entries.innerHTML = `
                     <div style="display: flex; justify-content: space-between; padding: 10px; border-bottom: 1px solid #333;"><span>1. CyberPilot</span> <span>9,430</span></div>
                     <div style="display: flex; justify-content: space-between; padding: 10px; border-bottom: 1px solid #333;"><span>2. NeonWing</span> <span>8,120</span></div>
-                    <div style="display: flex; justify-content: space-between; padding: 10px; border-bottom: 1px solid #333;"><span>3. YOU</span> <span>${this.highScore}</span></div>
+                    <div style="display: flex; justify-content: space-between; padding: 10px; border-bottom: 1px solid #333;"><span>3. YOU</span> <span>${this.state.highScore}</span></div>
                     <div style="display: flex; justify-content: space-between; padding: 10px; border-bottom: 1px solid #333;"><span>4. StarDash</span> <span>4,200</span></div>
                 `;
             }, 500);
@@ -432,8 +594,8 @@ class Game {
             const entries = document.getElementById('achievementsEntries');
             const list = [
                 { n: 'First Flight', d: 'Start your first run', c: true },
-                { n: 'Coin Collector', d: 'Gather 100 coins total', c: this.totalCoins >= 100 },
-                { n: 'Ace Pilot', d: 'Reach a score of 50', c: this.highScore >= 50 },
+                { n: 'Coin Collector', d: 'Gather 100 coins total', c: this.state.stats.totalCoins >= 100 },
+                { n: 'Ace Pilot', d: 'Reach a score of 50', c: this.state.highScore >= 50 },
                 { n: 'Combo Master', d: 'Get a 10x combo', c: false }
             ];
             entries.innerHTML = list.map(a => `
@@ -449,6 +611,12 @@ class Game {
         if (window.CrazyGames && window.CrazyGames.SDK && window.CrazyGames.SDK.game) {
             window.CrazyGames.SDK.game.gameplayStart();
         }
+        const zone = this.zones[this.currentZoneIdx];
+
+        // Update background style
+        const container = document.querySelector('.game-container');
+        container.className = 'game-container zone-' + zone.id;
+
         this.gameState = 'PLAYING';
         this.score = 0;
         this.combo = 1;
@@ -457,10 +625,17 @@ class Game {
         this.powerups = [];
         this.floaters = [];
         this.activePowerups = {};
-        this.gameSpeed = 4.5;
+        this.gameSpeed = zone.speed;
+        this.startTime = Date.now();
+        this.coinsInRun = 0;
+
         this.craft.reset();
+        this.craft.gravity = zone.gravity;
+
         document.getElementById('mainMenu').style.display = 'none';
+        document.getElementById('topNavBar').style.display = 'none';
         document.getElementById('gameOverScreen').style.display = 'none';
+        document.getElementById('gameUI').style.display = 'flex';
         document.getElementById('gameUI').style.opacity = '1';
         this.updateUI();
     }
@@ -483,29 +658,64 @@ class Game {
         this.hitStop = 12;
         if (window.audioManager) window.audioManager.playSound('hit');
 
-        if (this.score > this.highScore) {
-            this.highScore = this.score;
-            localStorage.setItem('highScore', this.highScore);
-            document.getElementById('highScoreValue').innerText = this.highScore;
+        // ECOSYSTEM UPDATES
+        const runTime = Math.floor((Date.now() - this.startTime) / 1000);
+        const xpGained = (this.score * 10) + (this.coinsInRun * 5) + (runTime * 2);
+
+        this.state.xp += xpGained;
+        this.state.coins += this.coinsInRun;
+        this.state.stats.totalTime += runTime;
+        this.state.stats.totalDist += runTime * this.gameSpeed;
+        this.state.stats.totalCoins += this.coinsInRun;
+        this.state.stats.maxCombo = Math.max(this.state.stats.maxCombo, this.combo);
+
+        if (this.score > this.state.highScore) {
+            this.state.highScore = this.score;
         }
-        localStorage.setItem('totalCoins', this.totalCoins);
+
+        // Level Up Logic (Multi-level support)
+        let leveledUp = false;
+        while (this.state.xp >= (this.state.level * 1000)) {
+            this.state.xp -= (this.state.level * 1000);
+            this.state.level++;
+            this.state.gems += 10;
+            leveledUp = true;
+        }
+        if (leveledUp) {
+            this.floaters.push(new ScoreFloater(this.canvas.width/2, this.canvas.height/2, 'LEVEL UP!', '#00f2fe'));
+            if (window.audioManager) window.audioManager.playSound('score');
+        }
+
+        // Quest Progress
+        this.state.dailyQuests.forEach(q => {
+            if (q.done) return;
+            if (q.id === 1) q.progress += this.coinsInRun;
+            if (q.id === 2) q.progress = Math.max(q.progress, this.score);
+            if (q.id === 4) q.progress += runTime;
+            if (q.id === 5) q.progress = Math.max(q.progress, this.combo);
+
+            if (q.done === false && q.progress >= q.goal) {
+                q.done = true;
+                if (q.type === 'coins') this.state.coins += q.reward;
+                if (q.type === 'xp') this.state.xp += q.reward;
+                if (q.type === 'gems') this.state.gems += q.reward;
+            }
+        });
+
+        this.saveState();
+        this.refreshLobby();
 
         document.getElementById('finalScore').innerText = this.score;
-        document.getElementById('gameOverHighScore').innerText = this.highScore;
-        document.getElementById('coinsCollected').innerText = this.totalCoins;
+        document.getElementById('gameOverHighScore').innerText = this.state.highScore;
+        document.getElementById('coinsCollected').innerText = this.coinsInRun;
 
-        let ranks = [
-            { s: 0, n: 'Rookie', e: '🥉' },
-            { s: 10, n: 'Pilot', e: '🥈' },
-            { s: 30, n: 'Ace', e: '🥇' },
-            { s: 60, n: 'Legend', e: '👑' },
-            { s: 100, n: 'Sky God', e: '🌌' }
-        ];
-        let currentRank = ranks[0];
-        for (let r of ranks) { if (this.score >= r.s) currentRank = r; }
-        document.getElementById('rankName').innerText = currentRank.n;
-        document.getElementById('rankIcon').innerText = currentRank.e;
-        document.getElementById('rankProgress').style.width = Math.min(100, (this.score / 100) * 100) + '%';
+        const ranks = ['ROOKIE', 'PILOT', 'ACE', 'LEGEND', 'SKY GOD'];
+        const rankIdx = Math.min(ranks.length - 1, Math.floor(this.state.level / 5));
+        document.getElementById('rankName').innerText = ranks[rankIdx];
+        document.getElementById('rankIcon').innerText = ['🥉', '🥈', '🥇', '👑', '🌌'][rankIdx];
+
+        const nextLevelXp = this.state.level * 1000;
+        document.getElementById('rankProgress').style.width = (this.state.xp / nextLevelXp) * 100 + '%';
 
         document.getElementById('gameOverScreen').style.display = 'flex';
 
@@ -522,14 +732,16 @@ class Game {
     showMenu() {
         this.gameState = 'START';
         document.getElementById('gameOverScreen').style.display = 'none';
+        document.getElementById('gameUI').style.display = 'none';
         document.getElementById('mainMenu').style.display = 'flex';
-        document.getElementById('gameUI').style.opacity = '0';
+        document.getElementById('topNavBar').style.display = 'flex';
+        this.refreshLobby();
     }
 
     updateUI() {
         document.getElementById('scoreValue').innerText = this.score;
         document.getElementById('comboValue').innerText = 'x' + this.combo;
-        document.getElementById('coinsValue').innerText = this.totalCoins;
+        document.getElementById('coinsValue').innerText = this.coinsInRun;
     }
 
     loop(timestamp) {
@@ -603,7 +815,7 @@ class Game {
             let dx = this.craft.x - c.x;
             let dy = this.craft.y - c.y;
             if (Math.sqrt(dx*dx + dy*dy) < this.craft.radius + c.radius) {
-                this.totalCoins++;
+                this.coinsInRun++;
                 this.updateUI();
                 this.floaters.push(new ScoreFloater(c.x, c.y, '+1', '#ffd700'));
                 if (window.audioManager) window.audioManager.playSound('score');
@@ -622,6 +834,11 @@ class Game {
             if (Math.sqrt(dx*dx + dy*dy) < this.craft.radius + pu.radius) {
                 this.applyPowerup(pu.type);
                 this.floaters.push(new ScoreFloater(pu.x, pu.y, pu.type.toUpperCase(), '#fff'));
+
+                // Track powerup usage for quests
+                const quest = this.state.dailyQuests.find(q => q.id === 3);
+                if (quest && !quest.done) quest.progress++;
+
                 this.powerups.splice(i, 1);
                 continue;
             }
@@ -655,7 +872,8 @@ class Game {
 
     applyPowerup(type) {
         if (window.audioManager) window.audioManager.playSound('score');
-        this.activePowerups[type] = 300;
+        const upgradeLevel = this.state.upgrades[type] || 1;
+        this.activePowerups[type] = 300 + (upgradeLevel * 60); // Base 5s + 1s per level
         if (type === 'shield') this.craft.shielded = true;
         if (type === 'magnet') this.craft.magnetized = true;
     }

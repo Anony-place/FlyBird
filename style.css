@@ -95,15 +95,101 @@ body {
     text-shadow: var(--text-glow);
 }
 
+/* Top Navigation Bar */
+.top-nav-bar {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 70px;
+    padding: 0 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: linear-gradient(to bottom, rgba(15, 15, 30, 0.9), transparent);
+    z-index: 150;
+}
+
+.nav-player-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.player-avatar {
+    width: 40px; height: 40px;
+    background: rgba(255,255,255,0.1);
+    border: 1px solid var(--primary-neon);
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 20px;
+    box-shadow: 0 0 10px rgba(0, 242, 254, 0.2);
+}
+
+.player-level-container {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.level-badge {
+    font-size: 10px;
+    font-weight: 900;
+    color: var(--primary-neon);
+}
+
+.xp-bar-container {
+    width: 80px; height: 6px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.xp-bar-fill {
+    height: 100%;
+    background: var(--primary-neon);
+    box-shadow: 0 0 5px var(--primary-neon);
+    transition: width 0.3s ease;
+}
+
+.nav-currency {
+    display: flex;
+    gap: 8px;
+}
+
+.currency-item {
+    background: rgba(0,0,0,0.5);
+    padding: 4px 4px 4px 10px;
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    border: 1px solid rgba(255,255,255,0.1);
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.add-btn {
+    width: 20px; height: 20px;
+    background: #22c55e;
+    border: none;
+    border-radius: 50%;
+    color: white;
+    font-weight: 900;
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+}
+
 /* UI Elements */
 .ui-overlay {
     position: absolute;
     top: 0; left: 0; right: 0; bottom: 0;
     pointer-events: none;
-    display: flex;
+    display: none; /* Hide during lobby */
     flex-direction: column;
     justify-content: space-between;
-    padding: 20px;
+    padding: 80px 20px 20px 20px; /* Leave space for top nav */
     z-index: 10;
 }
 
@@ -220,6 +306,49 @@ body {
     box-shadow: 0 0 35px rgba(0, 242, 254, 0.6);
 }
 
+/* Lobby Tabs */
+.lobby-tabs {
+    position: absolute;
+    top: 70px; left: 0; right: 0;
+    display: flex;
+    justify-content: center;
+    gap: 5px;
+    padding: 10px;
+    z-index: 120;
+}
+
+.lobby-tab {
+    flex: 1;
+    padding: 12px 5px;
+    background: rgba(255,255,255,0.03);
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: rgba(255,255,255,0.5);
+    font-weight: 900;
+    font-size: 11px;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.lobby-tab.active {
+    color: var(--primary-neon);
+    border-bottom-color: var(--primary-neon);
+    background: rgba(0, 242, 254, 0.05);
+}
+
+.tab-content {
+    display: none;
+    width: 100%;
+    height: 100%;
+    padding-top: 130px; /* Space for TopNav + Tabs */
+}
+
+.tab-content.active {
+    display: flex;
+    flex-direction: column;
+}
+
 /* Panels */
 .menu-overlay, .modal-overlay {
     position: absolute;
@@ -232,6 +361,7 @@ body {
 
 .menu-overlay {
     background: rgba(10, 10, 20, 0.98);
+    flex-direction: column;
 }
 
 .modal-overlay {
@@ -244,7 +374,18 @@ body {
     display: flex;
 }
 
-.menu-content, .settings-panel, .leaderboard-panel, .about-panel, .achievements-panel, .pause-menu {
+.menu-content {
+    width: 100%;
+    height: 100%;
+    padding: 20px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+}
+
+.settings-panel, .leaderboard-panel, .about-panel, .achievements-panel, .pause-menu {
     width: 90%;
     max-height: 90%;
     background: var(--panel-bg);
@@ -256,6 +397,154 @@ body {
     flex-direction: column;
     gap: 20px;
 }
+
+/* Zone-specific backgrounds */
+.game-container.zone-neon {
+    background: radial-gradient(circle at center, #1a1a3e 0%, #0f0f1e 100%);
+}
+.game-container.zone-void {
+    background: radial-gradient(circle at center, #2e004f 0%, #05000a 100%);
+}
+.game-container.zone-inferno {
+    background: radial-gradient(circle at center, #4f1100 0%, #0a0200 100%);
+}
+
+/* Lobby Specific */
+.lobby-visual {
+    position: relative;
+    width: 200px; height: 200px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.hero-craft-preview {
+    font-size: 120px;
+    filter: drop-shadow(0 0 30px var(--primary-neon));
+    animation: float 3s ease-in-out infinite;
+}
+
+@keyframes float {
+    0%, 100% { transform: translateY(0) rotate(0); }
+    50% { transform: translateY(-15px) rotate(5deg); }
+}
+
+.player-rank-badge {
+    position: absolute;
+    bottom: 0;
+    background: rgba(0,0,0,0.8);
+    border: 1px solid var(--primary-neon);
+    padding: 5px 15px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 900;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.zone-selector {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    background: rgba(255,255,255,0.05);
+    padding: 10px 20px;
+    border-radius: 16px;
+    border: 1px solid rgba(255,255,255,0.1);
+}
+
+.zone-btn {
+    background: none;
+    border: none;
+    color: var(--primary-neon);
+    font-size: 20px;
+    cursor: pointer;
+}
+
+.zone-info { text-align: center; }
+.zone-label { font-size: 9px; color: rgba(255,255,255,0.5); font-weight: 700; }
+.zone-name { font-size: 18px; font-weight: 900; color: #fff; }
+
+.quick-links {
+    display: flex;
+    gap: 15px;
+    margin-top: auto;
+}
+
+.icon-button {
+    width: 50px; height: 50px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 12px;
+    font-size: 20px;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.icon-button:hover { background: rgba(255,255,255,0.1); border-color: var(--primary-neon); }
+
+/* Shop Styles */
+.shop-sections { width: 100%; display: flex; flex-direction: column; gap: 25px; }
+.shop-group-title { font-size: 14px; font-weight: 900; color: var(--primary-neon); margin-bottom: 15px; text-align: left; width: 100%; }
+.shop-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; width: 100%; }
+
+.shop-item {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 16px;
+    padding: 15px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    transition: 0.2s;
+}
+
+.shop-item.locked { opacity: 0.7; filter: grayscale(1); }
+.shop-item.selected { border-color: var(--primary-neon); background: rgba(0, 242, 254, 0.1); }
+
+.item-visual { font-size: 40px; }
+.item-name { font-size: 14px; font-weight: 900; }
+.item-price {
+    background: rgba(0,0,0,0.4);
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 700;
+    color: #ffd700;
+}
+
+/* Quest Styles */
+.quest-list { width: 100%; display: flex; flex-direction: column; gap: 12px; }
+.quest-card {
+    background: rgba(255,255,255,0.05);
+    border-radius: 16px;
+    padding: 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-left: 4px solid #333;
+}
+
+.quest-card.completed { border-left-color: #22c55e; }
+.quest-info { flex: 1; }
+.quest-title { font-size: 14px; font-weight: 700; }
+.quest-progress-container { width: 100%; height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; margin-top: 8px; }
+.quest-progress-fill { height: 100%; background: #22c55e; border-radius: 3px; }
+.quest-reward { font-size: 12px; color: #ffd700; font-weight: 900; margin-top: 5px; }
+
+/* Stats Styles */
+.stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; width: 100%; }
+.stat-card {
+    background: rgba(255,255,255,0.03);
+    border-radius: 16px;
+    padding: 20px;
+    text-align: center;
+    border: 1px solid rgba(255,255,255,0.05);
+}
+
+.tab-title { font-size: 24px; font-weight: 900; letter-spacing: 2px; margin-bottom: 20px; color: #fff; }
 
 .character-select {
     display: grid;
