@@ -39,18 +39,21 @@
         <!-- Game UI Overlay (During Gameplay) -->
         <div class="ui-overlay" id="gameUI">
             <div class="ui-top-section">
-                <div class="score-display">
-                    <div class="score-item">
-                        <div class="score-label">SCORE</div>
-                        <div class="score-value" id="scoreValue">0</div>
-                    </div>
-                    <div class="score-item">
-                        <div class="score-label">COMBO</div>
-                        <div class="score-value combo-value" id="comboValue">x1</div>
-                    </div>
-                    <div class="score-item">
-                        <div class="score-label">COINS</div>
-                        <div class="score-value coin-value" id="coinsValue">0</div>
+                <div class="game-header-row">
+                    <button class="pause-btn-ingame" id="pauseBtnInGame">⏸</button>
+                    <div class="score-display">
+                        <div class="score-item">
+                            <div class="score-label">SCORE</div>
+                            <div class="score-value" id="scoreValue">0</div>
+                        </div>
+                        <div class="score-item">
+                            <div class="score-label">COMBO</div>
+                            <div class="score-value combo-value" id="comboValue">x1</div>
+                        </div>
+                        <div class="score-item">
+                            <div class="score-label">COINS</div>
+                            <div class="score-value coin-value" id="coinsValue">0</div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -66,7 +69,7 @@
         <!-- Starting Animation Overlay -->
         <div class="starting-animation" id="startingAnimation">
             <div class="animation-content">
-                <div class="bird-logo">🚀</div>
+                <div class="craft-logo">🚀</div>
                 <h2>AERO DASH</h2>
                 <p>SKY HIGH</p>
             </div>
@@ -113,6 +116,7 @@
                     <div class="quick-links">
                         <button class="icon-button" id="settingsBtn">⚙️</button>
                         <button class="icon-button" id="leaderboardBtn">🏆</button>
+                        <button class="icon-button" id="achievementsBtn">🎖️</button>
                         <button class="icon-button" id="aboutBtn">ℹ️</button>
                     </div>
                 </div>
@@ -341,6 +345,9 @@
                     </div>
                 </div>
                 <div class="game-over-buttons">
+                    <button class="button button-primary" id="reviveBtn" style="display: none; background: linear-gradient(135deg, #ffd700, #ff8c00); color: #000;">
+                        <span>📺 REVIVE (AD)</span>
+                    </button>
                     <button class="button button-primary" id="retryBtn">TRY AGAIN</button>
                     <button class="button button-secondary" id="menuBtn">MAIN MENU</button>
                 </div>

@@ -56,6 +56,18 @@ class AeroCraft {
     draw() {
         const ctx = this.ctx;
 
+        // Shield Effect
+        if (this.shielded) {
+            ctx.save();
+            ctx.translate(this.x, this.y);
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.arc(0, 0, 25 + Math.sin(this.pulse * 2) * 3, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.restore();
+        }
+
         // Particles
         this.particles.forEach(p => {
             ctx.globalAlpha = p.life * 0.7;
@@ -74,16 +86,6 @@ class AeroCraft {
         ctx.shadowBlur = 15 + Math.sin(this.pulse) * 5;
         ctx.shadowColor = this.themeColor;
 
-        // Shield Effect
-        if (this.shielded) {
-            ctx.strokeStyle = '#fff';
-            ctx.lineWidth = 3;
-            ctx.beginPath();
-            ctx.arc(0, 0, 25 + Math.sin(this.pulse * 2) * 3, 0, Math.PI * 2);
-            ctx.stroke();
-            ctx.shadowBlur = 20;
-            ctx.shadowColor = '#fff';
-        }
 
         // Wing Shape
         let grad = ctx.createLinearGradient(-15, 0, 15, 0);
@@ -350,12 +352,14 @@ class Game {
 
         this.initUI();
         this.initInput();
-        this.refreshLobby();
+        this.showMenu();
         requestAnimationFrame((t) => this.loop(t));
 
+        const splash = document.getElementById('startingAnimation');
+        splash.onclick = () => splash.style.display = 'none';
         setTimeout(() => {
-            document.getElementById('startingAnimation').style.display = 'none';
-        }, 3000);
+            splash.style.display = 'none';
+        }, 2000);
     }
 
     saveState() {
@@ -404,7 +408,7 @@ class Game {
                 document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
                 tab.classList.add('active');
                 document.getElementById(`tab-${tab.dataset.tab}`).classList.add('active');
-                if (window.audioManager) window.audioManager.playSound('flap');
+                if (window.audioManager) window.audioManager.playSound('thrust');
                 if (tab.dataset.tab === 'shop') this.renderShop();
                 if (tab.dataset.tab === 'quests') this.renderQuests();
                 if (tab.dataset.tab === 'stats') this.renderStats();
@@ -424,7 +428,7 @@ class Game {
         const zone = this.zones[this.currentZoneIdx];
         document.getElementById('currentZoneName').innerText = zone.name;
         document.getElementById('currentZoneName').style.color = zone.color;
-        if (window.audioManager) window.audioManager.playSound('flap');
+        if (window.audioManager) window.audioManager.playSound('thrust');
     }
 
     refreshLobby() {
@@ -533,12 +537,13 @@ class Game {
             if (e && e.target && (e.target.tagName === 'BUTTON' || e.target.closest('button'))) return;
             if (this.gameState === 'PLAYING') {
                 this.craft.velocity = this.craft.jump;
-                if (window.audioManager) window.audioManager.playSound('flap');
+                if (window.audioManager) window.audioManager.playSound('thrust');
             }
         };
 
         window.addEventListener('keydown', (e) => {
-            if (e.code === 'Space' || e.code === 'ArrowUp') handleInput();
+            if (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW') handleInput();
+            if (e.code === 'Escape' && this.gameState === 'PLAYING') this.pauseGame();
         });
         this.canvas.addEventListener('mousedown', handleInput);
         this.canvas.addEventListener('touchstart', (e) => {
@@ -549,6 +554,11 @@ class Game {
         document.getElementById('playGameBtn').addEventListener('click', () => this.startGame());
         document.getElementById('retryBtn').addEventListener('click', () => this.startGame());
         document.getElementById('menuBtn').addEventListener('click', () => this.showMenu());
+        document.getElementById('pauseBtnInGame').addEventListener('click', () => this.pauseGame());
+        document.getElementById('resumeBtn').addEventListener('click', () => this.resumeGame());
+        document.getElementById('restartBtn').addEventListener('click', () => this.startGame());
+        document.getElementById('mainMenuBtn').addEventListener('click', () => this.showMenu());
+        document.getElementById('reviveBtn').addEventListener('click', () => this.reviveWithAd());
 
         // Modals
         const setupModal = (btnId, overlayId, closeId) => {
@@ -611,6 +621,8 @@ class Game {
         if (window.CrazyGames && window.CrazyGames.SDK && window.CrazyGames.SDK.game) {
             window.CrazyGames.SDK.game.gameplayStart();
         }
+        this.canRevive = true;
+        document.getElementById('reviveBtn').style.display = 'none';
         const zone = this.zones[this.currentZoneIdx];
 
         // Update background style
@@ -638,6 +650,19 @@ class Game {
         document.getElementById('gameUI').style.display = 'flex';
         document.getElementById('gameUI').style.opacity = '1';
         this.updateUI();
+    }
+
+    pauseGame() {
+        if (this.gameState !== 'PLAYING') return;
+        this.gameState = 'PAUSED';
+        document.getElementById('pauseMenuOverlay').classList.add('active');
+        if (window.audioManager) window.audioManager.mute();
+    }
+
+    resumeGame() {
+        this.gameState = 'PLAYING';
+        document.getElementById('pauseMenuOverlay').classList.remove('active');
+        if (window.audioManager) window.audioManager.unmute();
     }
 
     gameOver() {
@@ -719,6 +744,12 @@ class Game {
 
         document.getElementById('gameOverScreen').style.display = 'flex';
 
+        if (this.canRevive) {
+            document.getElementById('reviveBtn').style.display = 'flex';
+        } else {
+            document.getElementById('reviveBtn').style.display = 'none';
+        }
+
         if (window.CrazyGames && window.CrazyGames.SDK && window.CrazyGames.SDK.game) {
             window.CrazyGames.SDK.game.gameplayStop();
             window.CrazyGames.SDK.ad.requestAd('midgame', {
@@ -729,11 +760,46 @@ class Game {
         }
     }
 
+    reviveWithAd() {
+        if (window.CrazyGames && window.CrazyGames.SDK && window.CrazyGames.SDK.ad) {
+            window.CrazyGames.SDK.ad.requestAd('rewarded', {
+                adStarted: () => { if(window.audioManager) window.audioManager.mute(); },
+                adFinished: () => {
+                    if(window.audioManager) window.audioManager.unmute();
+                    this.revive();
+                },
+                adError: () => {
+                    if(window.audioManager) window.audioManager.unmute();
+                    alert("Ad failed to load. Please try again later.");
+                }
+            });
+        } else {
+            // Fallback for dev environment
+            this.revive();
+        }
+    }
+
+    revive() {
+        this.gameState = 'PLAYING';
+        this.canRevive = false;
+        this.craft.y = this.canvas.height / 2;
+        this.craft.velocity = 0;
+        this.pillars = this.pillars.filter(p => p.x > this.craft.x + 100 || p.x < this.craft.x - 100);
+        document.getElementById('gameOverScreen').style.display = 'none';
+        document.getElementById('reviveBtn').style.display = 'none';
+        if (window.CrazyGames && window.CrazyGames.SDK && window.CrazyGames.SDK.game) {
+            window.CrazyGames.SDK.game.gameplayStart();
+        }
+    }
+
     showMenu() {
+        console.log("Showing Menu");
         this.gameState = 'START';
+        document.getElementById('pauseMenuOverlay').classList.remove('active');
         document.getElementById('gameOverScreen').style.display = 'none';
         document.getElementById('gameUI').style.display = 'none';
         document.getElementById('mainMenu').style.display = 'flex';
+        document.getElementById('mainMenu').style.opacity = '1';
         document.getElementById('topNavBar').style.display = 'flex';
         this.refreshLobby();
     }
@@ -792,8 +858,9 @@ class Game {
         for (let i = this.pillars.length - 1; i >= 0; i--) {
             let p = this.pillars[i];
             p.update(effectiveDt, this.gameSpeed);
-            if (this.craft.x + 12 > p.x && this.craft.x - 12 < p.x + p.width) {
-                if (this.craft.y - 10 < p.top || this.craft.y + 10 > this.canvas.height - p.bottom) {
+            // Fair hitboxes: visual is radius 15, we use 10 for collision
+            if (this.craft.x + 10 > p.x && this.craft.x - 10 < p.x + p.width) {
+                if (this.craft.y - 8 < p.top || this.craft.y + 8 > this.canvas.height - p.bottom) {
                     this.gameOver();
                 }
             }
@@ -819,6 +886,16 @@ class Game {
                 this.updateUI();
                 this.floaters.push(new ScoreFloater(c.x, c.y, '+1', '#ffd700'));
                 if (window.audioManager) window.audioManager.playSound('score');
+
+                // Particle burst for coins
+                for(let j=0; j<8; j++) {
+                    this.craft.particles.push({
+                        x: c.x, y: c.y,
+                        vx: (Math.random()-0.5)*10, vy: (Math.random()-0.5)*10,
+                        life: 1.0, size: Math.random()*4+2
+                    });
+                }
+
                 this.coins.splice(i, 1);
                 continue;
             }

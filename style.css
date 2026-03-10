@@ -30,12 +30,24 @@ body {
     position: relative;
     width: 100%;
     max-width: 480px;
+    height: 100%;
+    max-height: 95vh;
     background: var(--bg-dark);
     overflow: hidden;
     border-radius: 24px;
     box-shadow: 0 30px 100px rgba(0, 0, 0, 0.9), 0 0 40px rgba(0, 242, 254, 0.1);
     aspect-ratio: 9 / 16;
     border: 1px solid rgba(0, 242, 254, 0.2);
+    display: flex;
+    flex-direction: column;
+}
+
+@media (max-aspect-ratio: 9/16) {
+    .game-container {
+        max-height: 100vh;
+        border-radius: 0;
+        border: none;
+    }
 }
 
 #gameCanvas {
@@ -65,8 +77,9 @@ body {
     justify-content: center;
     align-items: center;
     z-index: 200;
-    animation: fadeOut 2.5s ease-in-out forwards;
-    pointer-events: none; /* Critical: Prevent blocking clicks */
+    animation: fadeOut 1.5s ease-in-out forwards;
+    pointer-events: auto;
+    cursor: pointer;
 }
 
 .animation-content {
@@ -74,7 +87,7 @@ body {
     animation: popInScale 1s cubic-bezier(0.36, 0, 0.66, 1.5) forwards;
 }
 
-.bird-logo {
+.craft-logo {
     font-size: 100px;
     filter: drop-shadow(0 0 20px var(--primary-neon));
     animation: pulseGlow 2s ease-in-out infinite;
@@ -99,8 +112,8 @@ body {
 .top-nav-bar {
     position: absolute;
     top: 0; left: 0; right: 0;
-    height: 70px;
-    padding: 0 20px;
+    height: 60px;
+    padding: 0 15px;
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -193,10 +206,32 @@ body {
     z-index: 10;
 }
 
+.game-header-row {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    width: 100%;
+}
+
+.pause-btn-ingame {
+    width: 45px; height: 45px;
+    background: rgba(255,255,255,0.1);
+    border: 1px solid var(--primary-neon);
+    border-radius: 12px;
+    color: var(--primary-neon);
+    font-size: 20px;
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    pointer-events: auto;
+}
+
 .score-display {
     display: flex;
     justify-content: space-around;
-    gap: 15px;
+    gap: 10px;
+    flex: 1;
 }
 
 .score-item {
@@ -309,12 +344,13 @@ body {
 /* Lobby Tabs */
 .lobby-tabs {
     position: absolute;
-    top: 70px; left: 0; right: 0;
+    top: 60px; left: 0; right: 0;
     display: flex;
     justify-content: center;
     gap: 5px;
-    padding: 10px;
+    padding: 5px 10px;
     z-index: 120;
+    background: rgba(15, 15, 30, 0.5);
 }
 
 .lobby-tab {
@@ -341,7 +377,7 @@ body {
     display: none;
     width: 100%;
     height: 100%;
-    padding-top: 130px; /* Space for TopNav + Tabs */
+    padding-top: 110px; /* Space for TopNav + Tabs */
 }
 
 .tab-content.active {

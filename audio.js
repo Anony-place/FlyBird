@@ -36,7 +36,7 @@ class AudioManager {
         if (!this.ctx) return;
 
         switch(type) {
-            case 'flap':
+            case 'thrust':
                 this.playTone(400, 0.1, 'triangle', 0.3);
                 this.playTone(600, 0.05, 'sine', 0.2);
                 break;
