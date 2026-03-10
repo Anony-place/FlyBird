@@ -45,6 +45,17 @@ body {
     touch-action: none;
 }
 
+.game-container::after {
+    content: " ";
+    display: block;
+    position: absolute;
+    top: 0; left: 0; bottom: 0; right: 0;
+    background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03));
+    z-index: 5;
+    background-size: 100% 4px, 3px 100%;
+    pointer-events: none;
+}
+
 /* Starting Animation */
 .starting-animation {
     position: absolute;
@@ -180,6 +191,11 @@ body {
     background: #111;
     border: 1px solid var(--primary-neon);
     box-shadow: 0 0 15px rgba(0, 242, 254, 0.3);
+    text-shadow: 0 0 5px var(--primary-neon);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
 }
 
 .button::before {
@@ -196,6 +212,7 @@ body {
     background: linear-gradient(135deg, var(--secondary-neon), var(--primary-neon));
     color: #000;
     box-shadow: 0 0 25px rgba(0, 242, 254, 0.5);
+    border: none;
 }
 
 .button:hover {
@@ -254,6 +271,15 @@ body {
     font-size: 11px;
 }
 
+.character-option {
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.character-option:hover {
+    background: rgba(255,255,255,0.08);
+}
+
 .character-option.selected {
     border-color: var(--primary-neon);
     background: rgba(0, 242, 254, 0.1);
@@ -262,11 +288,21 @@ body {
 
 /* Game Over Polish */
 .game-over-title {
-    font-size: 48px;
+    font-size: 56px;
     font-weight: 900;
     color: #ff4b2b;
-    text-shadow: 0 0 20px rgba(255, 75, 43, 0.5);
+    text-shadow: 0 0 30px rgba(255, 75, 43, 0.8);
     margin-bottom: 20px;
+    animation: glitchText 1s infinite;
+}
+
+@keyframes glitchText {
+    0% { transform: skew(0deg); }
+    20% { transform: skew(-2deg); text-shadow: 2px 0 red, -2px 0 blue; }
+    40% { transform: skew(2deg); }
+    60% { transform: skew(-1deg); text-shadow: -2px 0 red, 2px 0 blue; }
+    80% { transform: skew(1deg); }
+    100% { transform: skew(0deg); }
 }
 
 .rank-display {
