@@ -55,6 +55,7 @@ body {
     align-items: center;
     z-index: 200;
     animation: fadeOut 2.5s ease-in-out forwards;
+    pointer-events: none; /* Critical: Prevent blocking clicks */
 }
 
 .animation-content {

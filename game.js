@@ -343,12 +343,32 @@ class Game {
         this.lastTime = 0;
         this.particlesEnabled = true;
 
-        window.addEventListener('click', () => this.handleInput());
+        window.addEventListener('click', () => {
+            if (this.audioManager.audioContext?.state === 'suspended') {
+                this.audioManager.audioContext.resume();
+            }
+            this.handleInput();
+        });
         window.addEventListener('keydown', (e) => this.handleKeyInput(e));
-        window.addEventListener('touchstart', (e) => { e.preventDefault(); this.handleInput(); }, { passive: false });
+        window.addEventListener('touchstart', (e) => {
+            if (this.audioManager.audioContext?.state === 'suspended') {
+                this.audioManager.audioContext.resume();
+            }
+            if (this.gameState === 'playing' && !this.gamePaused) {
+                e.preventDefault();
+                this.handleInput();
+            }
+        }, { passive: false });
 
         this.initMenu();
         if (window.CrazyGames && window.CrazyGames.SDK) window.CrazyGames.SDK.game.sdkGameLoadingStop();
+
+        // Safety: ensure intro disappears even if CSS animation fails
+        setTimeout(() => {
+            const intro = document.getElementById('startingAnimation');
+            if (intro) intro.style.display = 'none';
+        }, 3500);
+
         requestAnimationFrame((t) => this.gameLoop(t));
     }
 
@@ -380,7 +400,13 @@ class Game {
         this.updateMenuRankDisplay();
         this.audioManager.playMenuMusic();
 
-        document.getElementById('playGameBtn').addEventListener('click', () => { this.audioManager.stopMenuMusic(); this.audioManager.playButtonClickSound(); this.startGame(); });
+        const playBtn = document.getElementById('playGameBtn');
+        playBtn.addEventListener('click', () => {
+            console.log("Play button clicked");
+            this.audioManager.stopMenuMusic();
+            this.audioManager.playButtonClickSound();
+            this.startGame();
+        });
         document.getElementById('settingsBtn').addEventListener('click', () => { this.audioManager.playButtonClickSound(); this.showPanel('settingsOverlay'); });
         document.getElementById('leaderboardBtn').addEventListener('click', () => { this.audioManager.playButtonClickSound(); this.showPanel('leaderboardOverlay'); });
         document.getElementById('aboutBtn').addEventListener('click', () => { this.audioManager.playButtonClickSound(); this.showPanel('aboutOverlay'); });
@@ -520,15 +546,23 @@ class Game {
     saveHighScore() { localStorage.setItem('aeroDashHighScore', this.highScore.toString()); }
 
     startGame() {
+        console.log("Game Starting...");
         this.bird = new AeroCraft(this.bird.character);
         this.pipes = []; this.particles = []; this.powerUps = []; this.scoreFloaters = [];
-        this.score = 0; this.coins = 0; this.frameCount = 0; this.gameState = 'playing';
+        this.score = 0; this.coins = 0; this.frameCount = 0;
+        this.gameState = 'playing';
+        this.gamePaused = false;
         this.comboMultiplier = 1; this.consecutiveScores = 0; this.activePowerUps = {};
         this.sessionStats.gamesPlayed++;
+
         if (window.CrazyGames && window.CrazyGames.SDK) window.CrazyGames.SDK.game.gameplayStart();
+
         document.getElementById('mainMenu').style.display = 'none';
         document.getElementById('gameOverScreen').style.display = 'none';
+        document.getElementById('startingAnimation').style.display = 'none'; // Ensure intro is gone
+
         this.hideAllPanels();
+        console.log("Game State:", this.gameState);
     }
 
     togglePause() {
@@ -572,7 +606,10 @@ class Game {
         if (this.bird.y > this.canvas.height || this.bird.y < 0) { this.endGame(); return; }
 
         // Spawn Pillars
-        if (Math.floor(this.frameCount) % this.difficultySettings.spawnRate === 0 && Math.floor(this.frameCount) !== Math.floor(this.frameCount - dt)) {
+        // If it's the very first frame or the spawn rate interval
+        const shouldSpawn = (Math.floor(this.frameCount) % this.difficultySettings.spawnRate === 0 && Math.floor(this.frameCount) !== Math.floor(this.frameCount - dt)) || (this.frameCount < 1 && this.pipes.length === 0);
+
+        if (shouldSpawn) {
             this.generatePillar();
             // Randomly spawn power-ups or coins
             if (Math.random() < 0.3) this.spawnPowerUp();
@@ -689,7 +726,8 @@ class Game {
     }
 
     draw() {
-        this.ctx.fillStyle = '#0f0f1e';
+        // Dynamic background with parallax stars or grid
+        this.ctx.fillStyle = '#0a0a14';
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
         // Background Grid
@@ -698,8 +736,13 @@ class Game {
         for(let x = 0; x < this.canvas.width; x += 40) { this.ctx.beginPath(); this.ctx.moveTo(x, 0); this.ctx.lineTo(x, this.canvas.height); this.ctx.stroke(); }
         for(let y = 0; y < this.canvas.height; y += 40) { this.ctx.beginPath(); this.ctx.moveTo(0, y); this.ctx.lineTo(this.canvas.width, y); this.ctx.stroke(); }
 
-        if (this.gameState === 'menu') return;
+        if (this.gameState === 'menu') {
+            // Draw a preview of the bird in the menu?
+            // Or just a clean background
+            return;
+        }
 
+        // Draw active game elements
         for (const pipe of this.pipes) pipe.draw(this.ctx, this.canvas.height);
         for (const p of this.powerUps) p.draw(this.ctx);
         for (const particle of this.particles) particle.draw(this.ctx);
@@ -781,8 +824,13 @@ class Game {
     }
 
     gameLoop(timestamp) {
-        const dt = (timestamp - (this.lastTime || timestamp)) / (1000 / 60);
+        if (!this.lastTime) this.lastTime = timestamp;
+        let dt = (timestamp - this.lastTime) / (1000 / 60);
         this.lastTime = timestamp;
+
+        // Cap dt to prevent huge leaps (e.g. when tab is backgrounded)
+        dt = Math.min(2.0, dt);
+
         this.update(dt);
         this.draw();
         requestAnimationFrame((t) => this.gameLoop(t));
