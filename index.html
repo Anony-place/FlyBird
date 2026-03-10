@@ -1,28 +1,16 @@
 <!DOCTYPE html>
 <html lang="en">
-<head><script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5826652112388036"
-     crossorigin="anonymous"></script>
+<head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Flappy Bird Ultimate</title>
     <link rel="stylesheet" href="style.css">
-</head><script type="text/javascript">
-	atOptions = {
-		'key' : 'cb3d6e98477124f0ef580f3d1670264a',
-		'format' : 'iframe',
-		'height' : 60,
-		'width' : 468,
-		'params' : {}
-	};
-</script>
-<script type="text/javascript" src="//www.highperformanceformat.com/cb3d6e98477124f0ef580f3d1670264a/invoke.js"></script>
+    <script src="https://sdk.crazygames.com/crazygames-sdk-v2.js"></script>
+</head>
 <body>
     <div class="game-container">
         <canvas id="gameCanvas"></canvas>
-        
-        <!-- Native Advanced Ad Container (for in-game ads) -->
-        <div id="native-ad-container" style="position: absolute; top: 10px; left: 10px; z-index: 100; max-width: 300px;"></div>
-        
+
         <!-- Game UI Overlay -->
         <div class="ui-overlay" id="gameUI">
             <div class="ui-top-section">
@@ -67,7 +55,7 @@
                     <p class="menu-subtitle">ULTIMATE</p>
                 </div>
                 <p class="menu-tagline">Tap to Fly • Avoid Pipes • Get Coins</p>
-                
+
                 <!-- Player Rank in Menu -->
                 <div class="menu-player-rank" id="menuPlayerRank">
                     <span class="rank-icon-small" id="menuRankIcon">🏆</span>
@@ -120,7 +108,7 @@
                     <h2>⚙️ SETTINGS</h2>
                     <button class="close-btn" id="settingsCloseBtn">✕</button>
                 </div>
-                
+
                 <div class="settings-content">
                     <div class="settings-group">
                         <h3 class="group-title">AUDIO</h3>
@@ -229,7 +217,7 @@
                             <li>✓ Score floaters & visual feedback</li>
                         </ul>
                     </div>
-                    
+
                     <div class="about-section">
                         <h3>POWER-UPS</h3>
                         <ul>
@@ -250,7 +238,7 @@
         <div class="menu-overlay" id="gameOverScreen" style="display: none;">
             <div class="menu-content game-over-content">
                 <h1 class="game-over-title">GAME OVER</h1>
-                
+
                 <!-- Rank Display -->
                 <div class="rank-display" id="rankDisplay">
                     <div class="rank-icon" id="rankIcon">🏆</div>
@@ -259,7 +247,7 @@
                         <div class="rank-progress-fill" id="rankProgress" style="width: 0%"></div>
                     </div>
                 </div>
-                
+
                 <div class="game-over-stats">
                     <div class="stat-item">
                         <div class="stat-label">FINAL SCORE</div>
@@ -282,27 +270,8 @@
         </div>
     </div>
 
-    <!-- AdMob Integration -->
-    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-XXXXXXXXXXXXXXXX"
-     crossorigin="anonymous"></script>
-
     <!-- Game Scripts -->
     <script src="audio.js"></script>
     <script src="game.js"></script>
-
-    <!-- AdMob Banner Ad in Menu -->
-    <div id="admob-banner" style="display: none; position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); z-index: 100;">
-        <ins class="adsbygoogle"
-             style="display:block"
-             data-ad-client="ca-pub-XXXXXXXXXXXXXXXX"
-             data-ad-slot="XXXXXXXXXX"
-             data-ad-format="auto"
-             data-full-width-responsive="true"></ins>
-        <script>
-             (adsbygoogle = window.adsbygoogle || []).push({});
-        </script>
-    </div>
 </body>
 </html>
-
-

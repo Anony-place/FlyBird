@@ -9,6 +9,7 @@ class AudioManager {
         this.sfxVolume = 0.7;
         this.soundEnabled = true;
         this.musicEnabled = true;
+        this.isMutedForAd = false;
         this.sounds = {};
         this.backgroundMusicRunning = false;
         this.initAudioContext();
@@ -24,7 +25,7 @@ class AudioManager {
 
     // Play simple tone sound
     playSound(frequency, duration, type = 'sine', volume = 0.3) {
-        if (!this.soundEnabled || !this.audioContext) return;
+        if (!this.soundEnabled || !this.audioContext || this.isMutedForAd) return;
 
         try {
             const oscillator = this.audioContext.createOscillator();
@@ -69,7 +70,7 @@ class AudioManager {
         this.playSound(1400, 0.08, 'sine', 0.5);
         this.playSound(1700, 0.1, 'sine', 0.5);
     }
-    
+
     playSpeedBoostSound() {
         this.playSound(800, 0.05, 'sine', 0.5);
         this.playSound(1200, 0.08, 'sine', 0.6);
@@ -109,19 +110,19 @@ class AudioManager {
         this.playSound(1100, 0.06, 'sine', 0.4);
         this.playSound(1400, 0.06, 'sine', 0.4);
     }
-    
+
     playMagnetSound() {
         this.playSound(1200, 0.1, 'sine', 0.4);
         this.playSound(1800, 0.1, 'sine', 0.5);
     }
-    
+
     playSlowMotionSound() {
         this.playSound(400, 0.1, 'sine', 0.4);
         this.playSound(200, 0.15, 'sine', 0.5);
     }
 
     playMenuMusic() {
-        if (!this.musicEnabled || !this.audioContext || this.backgroundMusicRunning) return;
+        if (!this.musicEnabled || !this.audioContext || this.backgroundMusicRunning || this.isMutedForAd) return;
         this.backgroundMusicRunning = true;
         this.playMusicSequence();
     }
@@ -133,7 +134,7 @@ class AudioManager {
     // More dynamic background music sequence
     playMusicSequence() {
         if (!this.backgroundMusicRunning) return;
-        
+
         // Professional game music melody with more variety
         const notes = [
             { freq: 523, duration: 0.3 },   // C
@@ -153,15 +154,15 @@ class AudioManager {
         let noteIndex = 0;
 
         const playNote = () => {
-            if (!this.backgroundMusicRunning) return;
-            
+            if (!this.backgroundMusicRunning || this.isMutedForAd) return;
+
             if (noteIndex >= notes.length) {
                 noteIndex = 0;
             }
-            
+
             const note = notes[noteIndex];
             this.playSound(note.freq, note.duration, 'sine', 0.15);
-            
+
             setTimeout(() => {
                 noteIndex++;
                 playNote();
@@ -192,6 +193,18 @@ class AudioManager {
         this.musicEnabled = enabled;
         if (!enabled) {
             this.stopMenuMusic();
+        }
+    }
+
+    muteAll() {
+        this.isMutedForAd = true;
+        this.stopMenuMusic();
+    }
+
+    unmuteAll() {
+        this.isMutedForAd = false;
+        if (this.musicEnabled) {
+            this.playMenuMusic();
         }
     }
 }
