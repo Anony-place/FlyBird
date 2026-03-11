@@ -843,6 +843,7 @@ class Game {
         this.score = 0;
         this.combo = 1;
         this.timeLeft = 60;
+        this.newBestNotified = false;
         this.warpMode = false;
         this.warpTimer = 0;
         this.pointsToWarp = 30;
@@ -916,6 +917,12 @@ class Game {
         this.state.stats.maxCombo = Math.max(this.state.stats.maxCombo, this.combo);
 
         if (this.score > this.state.highScore) {
+            if (!this.newBestNotified && this.state.highScore > 0) {
+                this.floaters.push(new ScoreFloater(this.canvas.width/2, this.canvas.height/3, "NEW BEST!", "#ffff00"));
+                this.flash = 15;
+                if (window.audioManager) window.audioManager.playSound('score');
+                this.newBestNotified = true;
+            }
             this.state.highScore = this.score;
             this.bestRun = [...this.runHistory];
             localStorage.setItem('aeroDashBestRun', JSON.stringify(this.bestRun));
@@ -947,6 +954,9 @@ class Game {
                 if (q.type === 'coins') this.state.coins += q.reward;
                 if (q.type === 'xp') this.state.xp += q.reward;
                 if (q.type === 'gems') this.state.gems += q.reward;
+
+                this.floaters.push(new ScoreFloater(this.canvas.width/2, this.canvas.height/2 + 40, "QUEST COMPLETE: " + q.text, "#22c55e"));
+                if (window.audioManager) window.audioManager.playSound('score');
             }
         });
 
@@ -1148,6 +1158,8 @@ class Game {
                 this.warpTimer = 5000;
                 this.pointsToWarp += 40;
                 this.shake = 15;
+                this.craft.shielded = true; // Speed-Shield grant
+                this.floaters.push(new ScoreFloater(this.craft.x, this.craft.y - 40, "SPEED SHIELD!", "#00ffff"));
                 document.querySelector('.game-container').classList.add('warp-active');
                 if (window.audioManager) window.audioManager.playSound('score');
             }
@@ -1197,12 +1209,31 @@ class Game {
             }
             if (!p.passed && p.x + p.width < this.craft.x) {
                 p.passed = true;
+
+                // Zone Transition check
+                if (this.score % 50 === 0 && this.score > 0) {
+                    this.currentZoneIdx = (this.currentZoneIdx + 1) % this.zones.length;
+                    const zone = this.zones[this.currentZoneIdx];
+                    document.querySelector('.game-container').className = 'game-container zone-' + zone.id;
+                    this.flash = 20;
+                    this.shake = 15;
+                    this.floaters.push(new ScoreFloater(this.canvas.width/2, this.canvas.height/2, "ENTERING " + zone.name, zone.color));
+                    if (window.audioManager) window.audioManager.playSound('score');
+                }
+
                 if (this.score >= 5 && this.activePowerups['shield'] === undefined) {
                     // Logic to remove starter shield if not boosted by powerup
                     // (Simplification: just keep it for first 5 gates)
                 }
                 let scoreGain = this.warpMode ? this.combo * 3 : this.combo;
                 this.score += scoreGain;
+
+                // Grant shield every 25 points if speed is high
+                if (this.score % 25 === 0 && this.gameSpeed > 5) {
+                    this.craft.shielded = true;
+                    this.floaters.push(new ScoreFloater(this.craft.x, this.craft.y - 40, "MILESTONE SHIELD!", "#00ffff"));
+                }
+
                 this.combo++;
                 this.flash = 6;
                 this.updateUI();
@@ -1269,7 +1300,7 @@ class Game {
                 }
             }
         }
-        if (this.score >= 5 && (this.activePowerups['shield'] || 0) <= 0) {
+        if (this.score >= 5 && (this.activePowerups['shield'] || 0) <= 0 && !this.warpMode) {
             this.craft.shielded = false;
         }
 
@@ -1341,6 +1372,18 @@ class Game {
         ctx.translate(-this.canvas.width / 4, -this.canvas.height / 2);
 
         ctx.fillStyle = '#fff';
+        if (this.gameSpeed > 8) {
+            ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+            ctx.lineWidth = 1;
+            for(let i=0; i<10; i++) {
+                let y = (Math.sin(Date.now()*0.01 + i)*0.5 + 0.5) * this.canvas.height;
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(this.canvas.width, y);
+                ctx.stroke();
+            }
+        }
+
         this.stars.forEach((layer, i) => {
             ctx.globalAlpha = (3 - i) * 0.25;
             layer.forEach(s => {
