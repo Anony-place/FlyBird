@@ -77,10 +77,10 @@ class AudioManager {
 
         osc.type = type;
         osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(freq * 0.5, this.ctx.currentTime + duration);
+        osc.frequency.linearRampToValueAtTime(freq * 0.5, this.ctx.currentTime + duration);
 
         gain.gain.setValueAtTime(vol * this.masterVolume, this.ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + duration);
+        gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + duration);
 
         osc.connect(gain);
         gain.connect(this.ctx.destination);

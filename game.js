@@ -438,7 +438,7 @@ class BossHyperGuardian {
             ctx.beginPath();
             ctx.arc(p.x, p.y, 8, 0, Math.PI * 2);
             ctx.fill();
-        });
+        }
     }
 }
 
@@ -598,6 +598,7 @@ class Game {
         this.mutator = null;
         this.mutatorTimer = 0;
         this.pointsToMutate = 25;
+        this.lastZoneScore = 0;
         this.boss = null;
         this.pointsToBoss = 100;
         this.gameState = 'START';
@@ -1221,9 +1222,9 @@ class Game {
     }
 
     updateUI() {
-        document.getElementById('scoreValue').innerText = this.score;
-        document.getElementById('comboValue').innerText = this.gameMode === 'time' ? Math.ceil(this.timeLeft) + 's' : 'x' + this.combo;
-        document.getElementById('coinsValue').innerText = this.coinsInRun;
+        const scoreEl = document.getElementById('scoreValue');
+        if (!scoreEl) return;
+        scoreEl.innerText = this.score;
 
         const bossUI = document.getElementById('bossHealthUI');
         const bossFill = document.getElementById('bossHealthFill');
@@ -1252,6 +1253,12 @@ class Game {
         }
 
         const comboMeter = document.getElementById('comboMeter');
+        const comboVal = document.getElementById('comboValue');
+        const coinsVal = document.getElementById('coinsValue');
+
+        if (comboVal) comboVal.innerText = this.gameMode === 'time' ? Math.ceil(this.timeLeft) + 's' : 'x' + this.combo;
+        if (coinsVal) coinsVal.innerText = this.coinsInRun;
+
         if (comboMeter) {
             if (this.combo > 1) {
                 comboMeter.innerText = 'COMBO x' + this.combo;
@@ -1464,13 +1471,14 @@ class Game {
                 p.passed = true;
 
                 // Zone Transition check
-                if (this.score % 50 === 0 && this.score > 0) {
+                if (this.score % 50 === 0 && this.score > 0 && this.score !== this.lastZoneScore) {
+                    this.lastZoneScore = this.score;
                     this.currentZoneIdx = (this.currentZoneIdx + 1) % this.zones.length;
                     const zone = this.zones[this.currentZoneIdx];
                     document.querySelector('.game-container').className = 'game-container zone-' + zone.id;
                     this.flash = 20;
                     this.shake = 15;
-                this.craft.invulnerable = 1500; // 1.5s grace period during zone transition
+                    this.craft.invulnerable = 1500; // 1.5s grace period during zone transition
                     this.floaters.push(new ScoreFloater(this.canvas.width/2, this.canvas.height/2, "ENTERING " + zone.name, zone.color));
                     if (window.audioManager) window.audioManager.playSound('score');
                 }
@@ -1694,7 +1702,7 @@ class Game {
                 ctx.fillRect(p.x, p.top, p.width, p.gap);
                 ctx.restore();
             }
-        });
+        }
 
         // Ghost Pilot
         if (this.bestRun && this.bestRun.length > this.runHistory.length) {
@@ -1733,7 +1741,7 @@ class Game {
             if (this.floaters[i]) this.floaters[i].draw(ctx);
         }
 
-        if (this.flash > 0) {
+        if (this.flash > 0 && this.gameState !== 'START') {
             let opacity = Math.min(0.8, this.flash * 0.08);
             ctx.fillStyle = `rgba(255, 255, 255, ${opacity})`;
             ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
