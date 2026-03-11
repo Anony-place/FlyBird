@@ -42,7 +42,11 @@ body {
     filter: saturate(1.8) contrast(1.2);
 }
 
-.game-container.warp-active::before {
+.game-container.rift-active {
+    filter: hue-rotate(45deg) brightness(1.1) contrast(1.1);
+}
+
+.game-container.warp-active::before, .game-container.rift-active::before {
     content: '';
     position: absolute;
     top: 0; left: 0; right: 0; bottom: 0;
@@ -777,4 +781,49 @@ body {
 @keyframes popInScale {
     0% { transform: scale(0.3); opacity: 0; }
     100% { transform: scale(1); opacity: 1; }
+}
+
+/* Ability Cooldown */
+.ability-cooldown {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,0.6);
+    padding: 10px 20px;
+    border-radius: 12px;
+    border: 1px solid var(--primary-neon);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    backdrop-filter: blur(5px);
+    pointer-events: none;
+}
+
+.cooldown-bar {
+    width: 150px;
+    height: 8px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.cooldown-fill {
+    width: 0%;
+    height: 100%;
+    background: var(--primary-neon);
+    box-shadow: 0 0 10px var(--primary-neon);
+    transition: width 0.1s linear;
+}
+
+.ability-label {
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: 1px;
+    color: var(--primary-neon);
+}
+
+.ability-icon {
+    font-size: 20px;
 }

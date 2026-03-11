@@ -16,29 +16,43 @@ class AeroCraft {
         this.y = this.canvas.height / 2;
         this.velocity = 0;
         this.gravity = 0.6;
-        this.jump = -8;
+        this.jump = -7; // Reduced jump power for more control
         this.radius = 15;
         this.rotation = 0;
         this.particles = [];
         this.pulse = 0;
         this.shielded = false;
         this.magnetized = false;
+        this.phasing = false;
+        this.phaseCooldown = 0;
     }
 
     update(dt) {
+        if (this.phaseCooldown > 0) this.phaseCooldown -= dt * 16.67;
         this.velocity += this.gravity * dt;
         this.y += this.velocity * dt;
         this.rotation = Math.min(Math.PI / 4, Math.max(-Math.PI / 4, (this.velocity * 0.1)));
 
         // Trail particles
-        if (Math.random() > 0.4) {
+        let trailChance = this.phasing ? 0.9 : 0.4;
+        if (Math.random() > (1 - trailChance)) {
+            let trailId = window.game?.state?.selectedTrail || 'basic';
+            let tColor = this.phasing ? '#00ffff' : this.themeColor;
+
+            if (!this.phasing) {
+                if (trailId === 'rainbow') tColor = `hsl(${window.game.score * 10 % 360}, 100%, 50%)`;
+                else if (trailId === 'matrix') tColor = '#00ff41';
+                else if (trailId === 'fire') tColor = '#ff4b2b';
+            }
+
             this.particles.push({
                 x: this.x - 10,
                 y: this.y,
-                vx: -2 - Math.random() * 2,
+                vx: (this.phasing ? -8 : -2) - Math.random() * 2,
                 vy: (Math.random() - 0.5) * 2,
                 life: 1.0,
-                size: Math.random() * 5 + 2
+                size: (this.phasing ? 8 : 5) + Math.random() * 2,
+                color: tColor
             });
         }
 
@@ -56,6 +70,13 @@ class AeroCraft {
     draw() {
         const ctx = this.ctx;
 
+        if (this.phasing) {
+            ctx.filter = 'hue-rotate(90deg) contrast(1.5) brightness(1.2)';
+            if (Math.random() > 0.7) {
+                ctx.translate((Math.random()-0.5)*10, (Math.random()-0.5)*10);
+            }
+        }
+
         // Shield Effect
         if (this.shielded) {
             ctx.save();
@@ -71,7 +92,7 @@ class AeroCraft {
         // Particles
         this.particles.forEach(p => {
             ctx.globalAlpha = p.life * 0.7;
-            ctx.fillStyle = this.themeColor;
+            ctx.fillStyle = p.color || this.themeColor;
             ctx.beginPath();
             ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
             ctx.fill();
@@ -107,8 +128,26 @@ class AeroCraft {
         ctx.arc(3, 0, 4, 0, Math.PI * 2);
         ctx.fill();
 
+        // Eye glow
+        ctx.fillStyle = this.phasing ? '#00ffff' : '#ff0000';
+        ctx.beginPath();
+        ctx.arc(5, -1, 1, 0, Math.PI * 2);
+        ctx.fill();
+
         ctx.restore();
         ctx.shadowBlur = 0;
+        ctx.filter = 'none';
+    }
+
+    phase() {
+        if (this.phaseCooldown > 0) return false;
+        this.phasing = true;
+        this.phaseCooldown = 4000; // 4s cooldown
+
+        setTimeout(() => {
+            this.phasing = false;
+        }, 600); // 0.6s phase duration
+        return true;
     }
 }
 
@@ -219,6 +258,18 @@ class Coin {
         ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
         ctx.fill();
         ctx.restore();
+        ctx.filter = 'none';
+    }
+
+    phase() {
+        if (this.phaseCooldown > 0) return false;
+        this.phasing = true;
+        this.phaseCooldown = 4000; // 4s cooldown
+
+        setTimeout(() => {
+            this.phasing = false;
+        }, 600); // 0.6s phase duration
+        return true;
     }
 }
 
@@ -303,6 +354,8 @@ class Game {
             highScore: 0,
             unlockedCrafts: ['swift'],
             selectedCraft: 'swift',
+            unlockedTrails: ['basic'],
+            selectedTrail: 'basic',
             upgrades: {
                 shield: 1,
                 magnet: 1,
@@ -337,10 +390,17 @@ class Game {
             { id: 'gold', name: 'Midas-1', color: '#ffcc00', emoji: '🏆', price: 3000 }
         ];
 
+        this.trails = [
+            { id: 'basic', name: 'Standard Plasma', color: this.selectedChar?.color || '#00f2fe', price: 0 },
+            { id: 'rainbow', name: 'Rainbow Pulse', color: 'RAINBOW', price: 500 },
+            { id: 'matrix', name: 'Digital Rain', color: '#00ff41', price: 1000 },
+            { id: 'fire', name: 'Hellfire', color: '#ff4b2b', price: 1500 }
+        ];
+
         this.zones = [
-            { id: 'neon', name: 'NEON CITY', color: '#00f2fe', gravity: 0.6, speed: 4.5 },
-            { id: 'void', name: 'DARK VOID', color: '#9d00ff', gravity: 0.8, speed: 5.5 },
-            { id: 'inferno', name: 'INFERNO', color: '#ff4b2b', gravity: 0.5, speed: 7.0 }
+            { id: 'neon', name: 'NEON CITY', color: '#00f2fe', gravity: 0.45, speed: 3.8 },
+            { id: 'void', name: 'DARK VOID', color: '#9d00ff', gravity: 0.55, speed: 4.8 },
+            { id: 'inferno', name: 'INFERNO', color: '#ff4b2b', gravity: 0.35, speed: 6.0 }
         ];
         this.currentZoneIdx = 0;
 
@@ -360,12 +420,17 @@ class Game {
         this.warpMode = false;
         this.warpTimer = 0;
         this.pointsToWarp = 30;
+        this.mutator = null;
+        this.mutatorTimer = 0;
+        this.pointsToMutate = 25;
         this.gameState = 'START';
         this.lastTime = 0;
         this.shake = 0;
         this.hitStop = 0;
         this.flash = 0;
         this.activePowerups = {};
+        this.runHistory = [];
+        this.bestRun = JSON.parse(localStorage.getItem('aeroDashBestRun')) || [];
 
         this.initUI();
         this.initInput();
@@ -477,6 +542,14 @@ class Game {
     }
 
     renderShop() {
+        // Cleanup extra grids from previous renders
+        document.getElementById('tab-shop').querySelector('.menu-content').querySelectorAll('.shop-group-title').forEach(t => {
+            if (t.innerText === 'ENGINE TRAILS') t.remove();
+        });
+        document.getElementById('tab-shop').querySelector('.menu-content').querySelectorAll('.shop-grid').forEach((g, i) => {
+            if (i >= 2) g.remove(); // Keep CRAFTS and UPGRADES
+        });
+
         const craftGrid = document.getElementById('craftShopGrid');
         craftGrid.innerHTML = '';
         this.characters.forEach(char => {
@@ -535,6 +608,38 @@ class Game {
             };
             upgradeGrid.appendChild(item);
         });
+
+        const trailGrid = document.createElement('div');
+        trailGrid.className = 'shop-grid';
+        const trailTitle = document.createElement('div');
+        trailTitle.className = 'shop-group-title';
+        trailTitle.innerText = 'ENGINE TRAILS';
+        document.getElementById('tab-shop').querySelector('.menu-content').appendChild(trailTitle);
+        document.getElementById('tab-shop').querySelector('.menu-content').appendChild(trailGrid);
+
+        this.trails.forEach(t => {
+            const isUnlocked = this.state.unlockedTrails.includes(t.id);
+            const isSelected = this.state.selectedTrail === t.id;
+            const item = document.createElement('div');
+            item.className = `shop-item ${isSelected ? 'selected' : ''} ${!isUnlocked ? 'locked' : ''}`;
+            item.innerHTML = `
+                <div class="item-visual">✨</div>
+                <div class="item-name">${t.name}</div>
+                <div class="item-price">${isUnlocked ? (isSelected ? 'EQUIPPED' : 'OWNED') : '💰 ' + t.price}</div>
+            `;
+            item.onclick = () => {
+                if (isUnlocked) {
+                    this.state.selectedTrail = t.id;
+                } else if (this.state.coins >= t.price) {
+                    this.state.coins -= t.price;
+                    this.state.unlockedTrails.push(t.id);
+                    if (window.audioManager) window.audioManager.playSound('score');
+                }
+                this.refreshLobby();
+                this.renderShop();
+            };
+            trailGrid.appendChild(item);
+        });
     }
 
     renderQuests() {
@@ -571,12 +676,40 @@ class Game {
 
         window.addEventListener('keydown', (e) => {
             if (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW') handleInput();
+            if (e.code === 'KeyShift' || e.code === 'KeyF' || e.code === 'KeyE') {
+                if (this.gameState === 'PLAYING' && this.craft.phase()) {
+                    this.shake = 10;
+                    if (window.audioManager) window.audioManager.playSound('thrust');
+                }
+            }
             if (e.code === 'Escape' && this.gameState === 'PLAYING') this.pauseGame();
         });
-        this.canvas.addEventListener('mousedown', handleInput);
+        this.canvas.addEventListener('mousedown', (e) => {
+            if (e.button === 2) { // Right click to dash
+                if (this.gameState === 'PLAYING' && this.craft.phase()) {
+                    this.shake = 10;
+                    if (window.audioManager) window.audioManager.playSound('thrust');
+                }
+            } else {
+                handleInput();
+            }
+        });
+        this.canvas.oncontextmenu = (e) => e.preventDefault();
+        let lastTap = 0;
         this.canvas.addEventListener('touchstart', (e) => {
             e.preventDefault();
-            handleInput();
+            const now = Date.now();
+            const TIMESPAN = 300;
+            if (now - lastTap < TIMESPAN) {
+                // Double tap
+                if (this.gameState === 'PLAYING' && this.craft.phase()) {
+                    this.shake = 10;
+                    if (window.audioManager) window.audioManager.playSound('thrust');
+                }
+            } else {
+                handleInput();
+            }
+            lastTap = now;
         }, { passive: false });
 
         document.getElementById('playGameBtn').addEventListener('click', () => this.startGame());
@@ -779,6 +912,8 @@ class Game {
 
         if (this.score > this.state.highScore) {
             this.state.highScore = this.score;
+            this.bestRun = [...this.runHistory];
+            localStorage.setItem('aeroDashBestRun', JSON.stringify(this.bestRun));
         }
 
         // Level Up Logic (Multi-level support)
@@ -892,6 +1027,13 @@ class Game {
         document.getElementById('comboValue').innerText = this.gameMode === 'time' ? Math.ceil(this.timeLeft) + 's' : 'x' + this.combo;
         document.getElementById('coinsValue').innerText = this.coinsInRun;
 
+        const dashFill = document.getElementById('dashCooldownFill');
+        if (dashFill) {
+            let pct = Math.max(0, 100 - (this.craft.phaseCooldown / 4000) * 100);
+            dashFill.style.width = pct + '%';
+            dashFill.style.backgroundColor = pct === 100 ? '#00ffff' : '#ff00ff';
+        }
+
         const comboMeter = document.getElementById('comboMeter');
         if (comboMeter) {
             if (this.combo > 1) {
@@ -911,6 +1053,9 @@ class Game {
             } else if (this.warpMode) {
                 difficultyLabel.innerText = 'WARP MODE';
                 difficultyLabel.style.color = '#ff00ff';
+            } else if (this.mutator) {
+                difficultyLabel.innerText = 'DIMENSIONAL RIFT: ' + this.mutator.name;
+                difficultyLabel.style.color = '#00ffff';
             } else {
                 let difficultyFactor = Math.min(1.0, this.score / 50);
                 if (difficultyFactor < 0.3) { difficultyLabel.innerText = 'EASY'; difficultyLabel.style.color = '#00ff88'; }
@@ -954,18 +1099,35 @@ class Game {
 
         this.craft.update(effectiveDt);
 
+        // Record ghost data
+        this.runHistory.push({ y: this.craft.y, r: this.craft.rotation, p: this.craft.phasing });
+
         this.stars.forEach((layer, i) => {
             let speed = (3 - i) * 0.4;
             layer.forEach(s => {
-                s.x -= speed * effectiveDt;
+                s.x -= speed * (this.mutator?.id === 'gravity_flip' ? effectiveDt * 0.5 : effectiveDt);
                 if (s.x < 0) s.x = this.canvas.width;
             });
         });
 
-        // Pillars & Difficulty
-        let difficultyFactor = Math.min(1.0, this.score / 50);
-        let currentGap = 210 - (difficultyFactor * 60);
+        // Pillars & Difficulty - Re-balanced for accessibility
+        let difficultyFactor = Math.min(1.0, this.score / 60);
+        let currentGap = 260 - (difficultyFactor * 80); // More generous gaps
         let luckFactor = 1.0 + (this.state.upgrades.luck - 1) * 0.2;
+
+        // Mutators logic
+        if (this.mutator) {
+            this.mutatorTimer -= dt * 16.67;
+            if (this.mutatorTimer <= 0) {
+                this.mutator = null;
+                this.craft.gravity = this.zones[this.currentZoneIdx].gravity;
+                this.craft.jump = -7;
+                document.querySelector('.game-container').classList.remove('rift-active');
+            }
+        } else if (this.score >= this.pointsToMutate) {
+            this.triggerMutator();
+            this.pointsToMutate += 35;
+        }
 
         if (this.warpMode) {
             this.gameSpeed = 12.0;
@@ -1018,10 +1180,14 @@ class Game {
                 }
             }
 
-            // Fair hitboxes: visual is radius 15, we use 10 for collision
-            if (this.craft.x + 10 > p.x && this.craft.x - 10 < p.x + p.width) {
-                if (this.craft.y - 8 < p.top || this.craft.y + 8 > this.canvas.height - p.bottom) {
-                    this.gameOver();
+            // Fair hitboxes: visual is radius 15, we use 8 for collision (very player-friendly)
+            if (this.craft.x + 8 > p.x && this.craft.x - 8 < p.x + p.width) {
+                if (this.craft.y - 5 < p.top || this.craft.y + 5 > this.canvas.height - p.bottom) {
+                    if (this.craft.phasing) {
+                        // Safe!
+                    } else {
+                        this.gameOver();
+                    }
                 }
             }
             if (!p.passed && p.x + p.width < this.craft.x) {
@@ -1106,6 +1272,29 @@ class Game {
 
         if (this.shake > 0) this.shake -= dt;
         if (this.flash > 0) this.flash -= dt;
+
+        // Cleanup out-of-bounds particles for better perf
+        if (this.craft.particles.length > 100) this.craft.particles.splice(0, 20);
+    }
+
+    triggerMutator() {
+        const mutators = [
+            { id: 'gravity_flip', name: 'GRAVITY FLIP', gravity: -0.2 },
+            { id: 'mirror', name: 'MIRROR MODE' },
+            { id: 'tiny', name: 'TINY CRAFT' }
+        ];
+        this.mutator = mutators[Math.floor(Math.random() * mutators.length)];
+        this.mutatorTimer = 8000; // 8 seconds
+        this.shake = 20;
+        this.flash = 10;
+        document.querySelector('.game-container').classList.add('rift-active');
+        if (window.audioManager) window.audioManager.playSound('score');
+        this.floaters.push(new ScoreFloater(this.canvas.width/2, this.canvas.height/2, "RIFT: " + this.mutator.name, "#00ffff"));
+
+        if (this.mutator.id === 'gravity_flip') {
+            this.craft.gravity = this.mutator.gravity;
+            this.craft.jump = 7; // Invert jump too
+        }
     }
 
     applyPowerup(type) {
@@ -1121,9 +1310,22 @@ class Game {
         ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
         ctx.save();
+
+        if (this.mutator?.id === 'mirror') {
+            ctx.scale(-1, 1);
+            ctx.translate(-this.canvas.width, 0);
+        }
+
         if (this.shake > 0) {
             ctx.translate((Math.random() - 0.5) * this.shake, (Math.random() - 0.5) * this.shake);
         }
+
+        // Dynamic Camera Zoom/Tilt
+        let zoom = 1.0 + (this.gameSpeed / 25);
+        ctx.translate(this.canvas.width / 4, this.canvas.height / 2);
+        ctx.scale(zoom, zoom);
+        ctx.rotate(this.craft.velocity * 0.005);
+        ctx.translate(-this.canvas.width / 4, -this.canvas.height / 2);
 
         ctx.fillStyle = '#fff';
         this.stars.forEach((layer, i) => {
@@ -1135,9 +1337,38 @@ class Game {
         ctx.globalAlpha = 1.0;
 
         this.pillars.forEach(p => p.draw());
+
+        // Ghost Pilot
+        if (this.bestRun && this.bestRun.length > this.runHistory.length) {
+            let ghostData = this.bestRun[this.runHistory.length];
+            ctx.save();
+            ctx.globalAlpha = 0.3;
+            ctx.translate(this.craft.x, ghostData.y);
+            ctx.rotate(ghostData.r);
+            if (ghostData.p) ctx.filter = 'hue-rotate(90deg) brightness(1.5)';
+
+            ctx.fillStyle = '#fff';
+            ctx.beginPath();
+            ctx.moveTo(18, 0); ctx.lineTo(-12, -12); ctx.lineTo(-8, 0); ctx.lineTo(-12, 12);
+            ctx.closePath();
+            ctx.fill();
+            ctx.restore();
+        }
+
         this.coins.forEach(c => c.draw());
         this.powerups.forEach(pu => pu.draw());
-        this.craft.draw();
+
+        if (this.mutator?.id === 'tiny') {
+            ctx.save();
+            ctx.translate(this.craft.x, this.craft.y);
+            ctx.scale(0.5, 0.5);
+            ctx.translate(-this.craft.x, -this.craft.y);
+            this.craft.draw();
+            ctx.restore();
+        } else {
+            this.craft.draw();
+        }
+
         this.floaters.forEach(f => f.draw(ctx));
 
         if (this.flash > 0) {
