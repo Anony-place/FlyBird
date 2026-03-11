@@ -73,10 +73,30 @@ body {
     display: block;
     position: absolute;
     top: 0; left: 0; bottom: 0; right: 0;
-    background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03));
+    background:
+        repeating-linear-gradient(0deg, rgba(0,0,0,0.15) 0px, rgba(0,0,0,0.15) 1px, transparent 1px, transparent 2px),
+        linear-gradient(90deg, rgba(255,0,0,0.05), rgba(0,255,0,0.02), rgba(0,0,255,0.05));
     z-index: 5;
-    background-size: 100% 4px, 3px 100%;
     pointer-events: none;
+    animation: scanline 10s linear infinite;
+}
+
+@keyframes scanline {
+    0% { background-position: 0 0; }
+    100% { background-position: 0 100%; }
+}
+
+.game-container.glitch-fx {
+    animation: glitch 0.2s linear infinite;
+}
+
+@keyframes glitch {
+    0% { transform: translate(0); filter: hue-rotate(0deg); }
+    20% { transform: translate(-5px, 2px); filter: hue-rotate(90deg); }
+    40% { transform: translate(5px, -2px); filter: hue-rotate(180deg); }
+    60% { transform: translate(-2px, 5px); filter: hue-rotate(270deg); }
+    80% { transform: translate(2px, -5px); filter: hue-rotate(360deg); }
+    100% { transform: translate(0); }
 }
 
 /* Starting Animation */
@@ -206,6 +226,40 @@ body {
 }
 
 /* UI Elements */
+.zone-progress-container {
+    position: absolute;
+    top: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 300px;
+    height: 20px;
+    background: rgba(0,0,0,0.5);
+    border: 1px solid var(--primary-neon);
+    border-radius: 10px;
+    overflow: hidden;
+    z-index: 20;
+}
+
+.zone-progress-fill {
+    width: 0%;
+    height: 100%;
+    background: linear-gradient(90deg, var(--secondary-neon), var(--primary-neon));
+    box-shadow: 0 0 10px var(--primary-neon);
+    transition: width 0.3s ease;
+}
+
+.zone-progress-text {
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 9px;
+    font-weight: 900;
+    color: #fff;
+    text-shadow: 1px 1px 2px #000;
+}
+
 .ui-overlay {
     position: absolute;
     top: 0; left: 0; right: 0; bottom: 0;

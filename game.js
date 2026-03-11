@@ -103,35 +103,76 @@ class AeroCraft {
         ctx.translate(this.x, this.y);
         ctx.rotate(this.rotation);
 
-        // Glow
-        ctx.shadowBlur = 15 + Math.sin(this.pulse) * 5;
+        // Advanced Glow
+        ctx.shadowBlur = 20 + Math.sin(this.pulse) * 8;
         ctx.shadowColor = this.themeColor;
 
+        // --- POLISHED VIPER-X MODEL ---
 
-        // Wing Shape
-        let grad = ctx.createLinearGradient(-15, 0, 15, 0);
-        grad.addColorStop(0, '#fff');
-        grad.addColorStop(1, this.themeColor);
+        // Thruster Flame
+        const thrusterSize = 5 + Math.abs(this.velocity);
+        ctx.fillStyle = this.phasing ? '#00ffff' : '#ffcc00';
+        ctx.beginPath();
+        ctx.moveTo(-10, 0);
+        ctx.lineTo(-10 - thrusterSize * 2, -2);
+        ctx.lineTo(-10 - thrusterSize * 2.5, 0);
+        ctx.lineTo(-10 - thrusterSize * 2, 2);
+        ctx.fill();
+
+        // Engine Nozzles
+        ctx.fillStyle = '#333';
+        ctx.fillRect(-12, -4, 4, 8);
+
+        // Main Wing Structure
+        let grad = ctx.createLinearGradient(-15, 0, 20, 0);
+        grad.addColorStop(0, '#111');
+        grad.addColorStop(0.5, this.themeColor);
+        grad.addColorStop(1, '#fff');
         ctx.fillStyle = grad;
 
+        // Sleek fuselage
         ctx.beginPath();
-        ctx.moveTo(18, 0);
-        ctx.lineTo(-12, -12);
-        ctx.lineTo(-8, 0);
-        ctx.lineTo(-12, 12);
+        const charId = window.game?.selectedChar?.id || 'swift';
+        if (charId === 'glitch') {
+            // Blocky glitchy shape
+            ctx.rect(-10, -10, 20, 20);
+            ctx.rect(10, -5, 10, 10);
+        } else if (charId === 'phantom') {
+            // Pointy ghost shape
+            ctx.moveTo(25, 0); ctx.lineTo(-10, -15); ctx.lineTo(-5, 0); ctx.lineTo(-10, 15);
+        } else {
+            ctx.moveTo(22, 0);       // Nose
+            ctx.lineTo(-8, -14);     // Top wing tip
+            ctx.lineTo(-12, -10);    // Back top
+            ctx.lineTo(-5, 0);       // Center back
+            ctx.lineTo(-12, 10);     // Back bottom
+            ctx.lineTo(-8, 14);      // Bottom wing tip
+        }
         ctx.closePath();
         ctx.fill();
 
-        // Cockpit
-        ctx.fillStyle = '#000';
+        // Mechanical Hull Plating Detail
+        ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+        ctx.lineWidth = 1;
         ctx.beginPath();
-        ctx.arc(3, 0, 4, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.moveTo(0, -8); ctx.lineTo(10, 0); ctx.lineTo(0, 8);
+        ctx.stroke();
 
-        // Eye glow
+        // Cockpit (Glass)
+        let cockpitGrad = ctx.createRadialGradient(8, -2, 1, 8, -2, 6);
+        cockpitGrad.addColorStop(0, '#00ffff');
+        cockpitGrad.addColorStop(1, '#002233');
+        ctx.fillStyle = cockpitGrad;
+        ctx.beginPath();
+        ctx.ellipse(8, 0, 8, 4, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+        ctx.stroke();
+
+        // Eye glow / Scanner
         ctx.fillStyle = this.phasing ? '#00ffff' : '#ff0000';
         ctx.beginPath();
-        ctx.arc(5, -1, 1, 0, Math.PI * 2);
+        ctx.arc(15, -1, 1.5, 0, Math.PI * 2);
         ctx.fill();
 
         ctx.restore();
@@ -1049,6 +1090,16 @@ class Game {
             dashFill.style.backgroundColor = pct === 100 ? '#00ffff' : '#ff00ff';
         }
 
+        // Zone Progress
+        const zone = this.zones[this.currentZoneIdx];
+        const progFill = document.getElementById('zoneProgressFill');
+        const progText = document.getElementById('zoneProgressText');
+        if (progFill) {
+            let pct = (this.score % 50) * 2;
+            progFill.style.width = pct + '%';
+            if (progText) progText.innerText = `${zone.name}: ${pct}%`;
+        }
+
         const comboMeter = document.getElementById('comboMeter');
         if (comboMeter) {
             if (this.combo > 1) {
@@ -1203,6 +1254,8 @@ class Game {
                     if (this.craft.phasing) {
                         // Safe!
                     } else {
+                        document.querySelector('.game-container').classList.add('glitch-fx');
+                        setTimeout(() => document.querySelector('.game-container').classList.remove('glitch-fx'), 300);
                         this.gameOver();
                     }
                 }
