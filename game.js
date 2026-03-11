@@ -29,6 +29,12 @@ class AeroCraft {
 
     update(dt) {
         if (this.phaseCooldown > 0) this.phaseCooldown -= dt * 16.67;
+
+        // Ceiling push-back logic
+        if (this.y < 20) {
+            this.velocity += this.gravity * dt * 2;
+        }
+
         this.velocity += this.gravity * dt;
         this.y += this.velocity * dt;
         this.rotation = Math.min(Math.PI / 4, Math.max(-Math.PI / 4, (this.velocity * 0.1)));
@@ -302,16 +308,6 @@ class Coin {
         ctx.filter = 'none';
     }
 
-    phase() {
-        if (this.phaseCooldown > 0) return false;
-        this.phasing = true;
-        this.phaseCooldown = 4000; // 4s cooldown
-
-        setTimeout(() => {
-            this.phasing = false;
-        }, 600); // 0.6s phase duration
-        return true;
-    }
 }
 
 class PowerUp {
@@ -352,6 +348,122 @@ class PowerUp {
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(icon, 0, 0);
+        ctx.restore();
+    }
+}
+
+class BossHyperGuardian {
+    constructor(canvas) {
+        this.canvas = canvas;
+        this.ctx = canvas.getContext('2d');
+        this.x = canvas.width + 200;
+        this.y = canvas.height / 2;
+        this.width = 120;
+        this.height = 150;
+        this.health = 100;
+        this.maxHealth = 100;
+        this.timer = 15000; // 15s encounter
+        this.projectiles = [];
+        this.shootTimer = 0;
+        this.targetY = canvas.height / 2;
+    }
+    update(dt, playerY) {
+        // Entry logic
+        if (this.x > this.canvas.width - 250) {
+            this.x -= 2 * dt;
+        }
+
+        // Hover logic
+        this.targetY = playerY;
+        this.y += (this.targetY - this.y) * 0.05 * dt;
+
+        this.timer -= dt * 16.67;
+        this.shootTimer -= dt * 16.67;
+
+        if (this.shootTimer <= 0) {
+            this.projectiles.push({ x: this.x, y: this.y, vx: -8, vy: (Math.random()-0.5)*4 });
+            this.shootTimer = 1500;
+        }
+
+        this.projectiles.forEach((p, i) => {
+            p.x += p.vx * dt;
+            p.y += p.vy * dt;
+            if (p.x < -20) this.projectiles.splice(i, 1);
+        });
+    }
+    draw() {
+        const ctx = this.ctx;
+        ctx.save();
+        ctx.translate(this.x, this.y);
+
+        // Boss Body
+        ctx.fillStyle = '#ff00ff';
+        ctx.shadowBlur = 30;
+        ctx.shadowColor = '#ff00ff';
+
+        ctx.beginPath();
+        ctx.moveTo(0, -60); ctx.lineTo(40, -40); ctx.lineTo(60, 0); ctx.lineTo(40, 40); ctx.lineTo(0, 60);
+        ctx.lineTo(-40, 40); ctx.lineTo(-60, 0); ctx.lineTo(-40, -40);
+        ctx.closePath();
+        ctx.fill();
+
+        // Eye
+        ctx.fillStyle = '#fff';
+        ctx.beginPath();
+        ctx.arc(-20, 0, 15 + Math.sin(Date.now()*0.01)*5, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.restore();
+
+        // Projectiles
+        this.projectiles.forEach(p => {
+            ctx.fillStyle = '#00ffff';
+            ctx.shadowBlur = 10;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, 8, 0, Math.PI * 2);
+            ctx.fill();
+        });
+    }
+}
+
+class EnemyDrone {
+    constructor(canvas, x, y) {
+        this.canvas = canvas;
+        this.ctx = canvas.getContext('2d');
+        this.x = x;
+        this.y = y;
+        this.startY = y;
+        this.radius = 12;
+        this.angle = 0;
+        this.speed = 2;
+    }
+    update(dt, gameSpeed) {
+        this.x -= gameSpeed * dt;
+        this.angle += 0.05 * dt;
+        this.y = this.startY + Math.sin(this.angle) * 50;
+    }
+    draw() {
+        const ctx = this.ctx;
+        ctx.save();
+        ctx.translate(this.x, this.y);
+
+        // Drone Body
+        ctx.fillStyle = '#ff0044';
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = '#ff0044';
+        ctx.beginPath();
+        ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Rotors
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 2;
+        ctx.rotate(this.angle * 2);
+        ctx.beginPath();
+        ctx.moveTo(-18, 0); ctx.lineTo(18, 0);
+        ctx.moveTo(0, -18); ctx.lineTo(0, 18);
+        ctx.stroke();
+
         ctx.restore();
     }
 }
@@ -455,6 +567,7 @@ class Game {
         this.pillars = [];
         this.coins = [];
         this.powerups = [];
+        this.drones = [];
         this.floaters = [];
         this.stars = this.initStars();
 
@@ -468,6 +581,8 @@ class Game {
         this.mutator = null;
         this.mutatorTimer = 0;
         this.pointsToMutate = 25;
+        this.boss = null;
+        this.pointsToBoss = 100;
         this.gameState = 'START';
         this.lastTime = 0;
         this.shake = 0;
@@ -891,6 +1006,7 @@ class Game {
         this.pillars = [];
         this.coins = [];
         this.powerups = [];
+        this.drones = [];
         this.floaters = [];
         this.activePowerups = {};
         this.gameSpeed = zone.speed;
@@ -1083,6 +1199,15 @@ class Game {
         document.getElementById('comboValue').innerText = this.gameMode === 'time' ? Math.ceil(this.timeLeft) + 's' : 'x' + this.combo;
         document.getElementById('coinsValue').innerText = this.coinsInRun;
 
+        const bossUI = document.getElementById('bossHealthUI');
+        const bossFill = document.getElementById('bossHealthFill');
+        if (this.boss) {
+            bossUI.style.display = 'flex';
+            bossFill.style.width = (this.boss.timer / 15000) * 100 + '%';
+        } else {
+            bossUI.style.display = 'none';
+        }
+
         const dashFill = document.getElementById('dashCooldownFill');
         if (dashFill) {
             let pct = Math.max(0, 100 - (this.craft.phaseCooldown / 4000) * 100);
@@ -1176,6 +1301,33 @@ class Game {
             });
         });
 
+        if (this.boss) {
+            this.boss.update(effectiveDt, this.craft.y);
+            this.updateUI(); // Keep health bar updated
+
+            // Check projectile collisions
+            this.boss.projectiles.forEach((p, i) => {
+                let dx = this.craft.x - p.x;
+                let dy = this.craft.y - p.y;
+                if (Math.sqrt(dx*dx + dy*dy) < this.craft.radius + 8) {
+                    if (this.craft.phasing || this.craft.shielded) {
+                        this.boss.projectiles.splice(i, 1);
+                    } else {
+                        this.gameOver();
+                    }
+                }
+            });
+
+            if (this.boss.timer <= 0) {
+                this.boss = null;
+                this.floaters.push(new ScoreFloater(this.canvas.width/2, this.canvas.height/2, 'BOSS DEFEATED!', '#ffd700'));
+                this.state.gems += 20;
+                this.state.xp += 1000;
+                if (window.audioManager) window.audioManager.playSound('score');
+            }
+            return; // Skip normal pillar spawning during boss
+        }
+
         // Pillars & Difficulty - Ultra-easy balancing
         let difficultyFactor = Math.min(1.0, this.score / 100);
         let currentGap = 320 - (difficultyFactor * 100); // Extremely generous starting gaps
@@ -1190,6 +1342,12 @@ class Game {
                 this.craft.jump = -7;
                 document.querySelector('.game-container').classList.remove('rift-active');
             }
+        } else if (this.score >= this.pointsToBoss) {
+            this.boss = new BossHyperGuardian(this.canvas);
+            this.pointsToBoss += 100;
+            this.shake = 30;
+            this.flash = 20;
+            this.floaters.push(new ScoreFloater(this.canvas.width/2, this.canvas.height/2, 'BOSS INCOMING!', '#ff00ff'));
         } else if (this.score >= this.pointsToMutate) {
             this.triggerMutator();
             this.pointsToMutate += 35;
@@ -1227,6 +1385,10 @@ class Game {
             if (Math.random() < 0.15 * luckFactor) {
                 let types = ['shield', 'magnet', 'slowmo'];
                 this.powerups.push(new PowerUp(this.canvas, this.canvas.width + 150, Math.random() * (this.canvas.height - 100) + 50, types[Math.floor(Math.random() * types.length)]));
+            }
+
+            if (this.score > 20 && Math.random() < 0.3) {
+                this.drones.push(new EnemyDrone(this.canvas, this.canvas.width + 200, Math.random() * (this.canvas.height - 100) + 50));
             }
         }
 
@@ -1320,6 +1482,27 @@ class Game {
                 continue;
             }
             if (c.x < -50) this.coins.splice(i, 1);
+        }
+
+        // Drones
+        for (let i = this.drones.length - 1; i >= 0; i--) {
+            let dr = this.drones[i];
+            dr.update(effectiveDt, this.gameSpeed);
+            let dx = this.craft.x - dr.x;
+            let dy = this.craft.y - dr.y;
+            if (Math.sqrt(dx*dx + dy*dy) < this.craft.radius + dr.radius) {
+                if (this.craft.phasing || this.craft.shielded) {
+                    // Destroy drone
+                    this.floaters.push(new ScoreFloater(dr.x, dr.y, 'DRONE DESTROYED', '#ff0044'));
+                    this.shake = 10;
+                    this.drones.splice(i, 1);
+                    if (window.audioManager) window.audioManager.playSound('score');
+                    continue;
+                } else {
+                    this.gameOver();
+                }
+            }
+            if (dr.x < -50) this.drones.splice(i, 1);
         }
 
         // Powerups
@@ -1474,6 +1657,8 @@ class Game {
             ctx.restore();
         }
 
+        this.drones.forEach(dr => dr.draw());
+        if (this.boss) this.boss.draw();
         this.coins.forEach(c => c.draw());
         this.powerups.forEach(pu => pu.draw());
 
