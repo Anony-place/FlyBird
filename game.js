@@ -16,7 +16,7 @@ class AeroCraft {
         this.y = this.canvas.height / 2;
         this.velocity = 0;
         this.gravity = 0.6;
-        this.jump = -7; // Reduced jump power for more control
+        this.jump = -6; // Ultra-easy floaty control
         this.radius = 15;
         this.rotation = 0;
         this.particles = [];
@@ -387,7 +387,11 @@ class Game {
             { id: 'swift', name: 'Swift-X', color: '#00f2fe', emoji: '🚀', price: 0 },
             { id: 'neon', name: 'Neon-Volt', color: '#ff00ff', emoji: '⚡', price: 500 },
             { id: 'emerald', name: 'Emerald-Jet', color: '#00ff88', emoji: '💎', price: 1200 },
-            { id: 'gold', name: 'Midas-1', color: '#ffcc00', emoji: '🏆', price: 3000 }
+            { id: 'gold', name: 'Midas-1', color: '#ffcc00', emoji: '🏆', price: 3000 },
+            { id: 'phantom', name: 'Phantom-S', color: '#ffffff', emoji: '👻', price: 5000 },
+            { id: 'solar', name: 'Solar-Flare', color: '#ff8c00', emoji: '☀️', price: 8000 },
+            { id: 'void', name: 'Void-Star', color: '#9d00ff', emoji: '🌌', price: 15000 },
+            { id: 'glitch', name: 'Glitch-Zero', color: '#00ff41', emoji: '👾', price: 25000 }
         ];
 
         this.trails = [
@@ -398,9 +402,9 @@ class Game {
         ];
 
         this.zones = [
-            { id: 'neon', name: 'NEON CITY', color: '#00f2fe', gravity: 0.45, speed: 3.8 },
-            { id: 'void', name: 'DARK VOID', color: '#9d00ff', gravity: 0.55, speed: 4.8 },
-            { id: 'inferno', name: 'INFERNO', color: '#ff4b2b', gravity: 0.35, speed: 6.0 }
+            { id: 'neon', name: 'NEON CITY', color: '#00f2fe', gravity: 0.35, speed: 2.5 },
+            { id: 'void', name: 'DARK VOID', color: '#9d00ff', gravity: 0.45, speed: 3.5 },
+            { id: 'inferno', name: 'INFERNO', color: '#ff4b2b', gravity: 0.25, speed: 5.0 }
         ];
         this.currentZoneIdx = 0;
 
@@ -853,6 +857,7 @@ class Game {
 
         this.craft.reset();
         this.craft.gravity = zone.gravity;
+        this.craft.shielded = true; // Starter Shield
 
         document.getElementById('mainMenu').style.display = 'none';
         document.getElementById('topNavBar').style.display = 'none';
@@ -1110,9 +1115,9 @@ class Game {
             });
         });
 
-        // Pillars & Difficulty - Re-balanced for accessibility
-        let difficultyFactor = Math.min(1.0, this.score / 60);
-        let currentGap = 260 - (difficultyFactor * 80); // More generous gaps
+        // Pillars & Difficulty - Ultra-easy balancing
+        let difficultyFactor = Math.min(1.0, this.score / 100);
+        let currentGap = 320 - (difficultyFactor * 100); // Extremely generous starting gaps
         let luckFactor = 1.0 + (this.state.upgrades.luck - 1) * 0.2;
 
         // Mutators logic
@@ -1148,7 +1153,7 @@ class Game {
             }
         }
 
-        if (this.pillars.length === 0 || this.pillars[this.pillars.length - 1].x < this.canvas.width - (280 + difficultyFactor * 40)) {
+        if (this.pillars.length === 0 || this.pillars[this.pillars.length - 1].x < this.canvas.width - (450 + difficultyFactor * 60)) {
             let newPillar = new Pillar(this.canvas, this.canvas.width, this.selectedChar.color, currentGap);
             this.pillars.push(newPillar);
 
@@ -1192,6 +1197,10 @@ class Game {
             }
             if (!p.passed && p.x + p.width < this.craft.x) {
                 p.passed = true;
+                if (this.score >= 5 && this.activePowerups['shield'] === undefined) {
+                    // Logic to remove starter shield if not boosted by powerup
+                    // (Simplification: just keep it for first 5 gates)
+                }
                 let scoreGain = this.warpMode ? this.combo * 3 : this.combo;
                 this.score += scoreGain;
                 this.combo++;
@@ -1254,10 +1263,14 @@ class Game {
             if (this.activePowerups[type] > 0) {
                 this.activePowerups[type] -= effectiveDt;
                 if (this.activePowerups[type] <= 0) {
-                    if (type === 'shield') this.craft.shielded = false;
+                    if (type === 'shield' && this.score >= 5) this.craft.shielded = false;
                     if (type === 'magnet') this.craft.magnetized = false;
+                    delete this.activePowerups[type];
                 }
             }
+        }
+        if (this.score >= 5 && (this.activePowerups['shield'] || 0) <= 0) {
+            this.craft.shielded = false;
         }
 
         // Floaters
@@ -1336,7 +1349,17 @@ class Game {
         });
         ctx.globalAlpha = 1.0;
 
-        this.pillars.forEach(p => p.draw());
+        this.pillars.forEach(p => {
+            p.draw();
+            // Safe Zone Indicator
+            if (this.gameState === 'PLAYING' && !p.passed && p.x > this.craft.x && p.x < this.canvas.width) {
+                ctx.save();
+                ctx.globalAlpha = 0.15;
+                ctx.fillStyle = this.selectedChar.color;
+                ctx.fillRect(p.x, p.top, p.width, p.gap);
+                ctx.restore();
+            }
+        });
 
         // Ghost Pilot
         if (this.bestRun && this.bestRun.length > this.runHistory.length) {
