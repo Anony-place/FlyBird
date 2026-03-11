@@ -3,7 +3,9 @@
 A high-octane aerial navigation game built with HTML5 Canvas. Experience procedural neon environments, a deep progression system, and intense warp-speed gameplay!
 
 ## Features
-- **4 Unique Aero Crafts:** Unlock and pilot Swift-X, Neon-Volt, Emerald-Jet, and Midas-1.
+- **8 Unique Aero Crafts:** Unlock and pilot Swift-X, Neon-Volt, Midas-1, Phantom-S, Solar-Flare, and more!
+- **Epic Boss Battles:** Survive against the Hyper-Guardian every 100 points to earn massive rewards.
+- **Dynamic Enemies:** Dodge Interceptor Drones patrolling the neon skies.
 - **Dynamic Zones:** Fly through Neon City, Dark Void, and Inferno—each with unique physics and speeds.
 - **Multiple Game Modes:** Test your skills in **Endless** mode or race against the clock in **Time Attack**.
 - **Warp Mode:** Reach score milestones to trigger high-speed warp sequences with 3x score multipliers.

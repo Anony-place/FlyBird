@@ -52,6 +52,7 @@ class AudioManager {
     }
 
     playTone(freq, duration, type, vol) {
+        if (!this.ctx) return;
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
 

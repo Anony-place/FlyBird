@@ -4,10 +4,11 @@
  */
 
 class AeroCraft {
-    constructor(canvas, themeColor) {
+    constructor(canvas, themeColor, id = 'swift') {
         this.canvas = canvas;
         this.ctx = canvas.getContext('2d');
         this.themeColor = themeColor || '#00f2ff';
+        this.id = id;
         this.reset();
     }
 
@@ -32,9 +33,11 @@ class AeroCraft {
         if (this.phaseCooldown > 0) this.phaseCooldown -= dt * 16.67;
         if (this.invulnerable > 0) this.invulnerable -= dt * 16.67;
 
-        // Ceiling push-back logic - Always applies downward force regardless of current gravity sign
-        if (this.y < 20) {
-            this.velocity += 1.5 * dt;
+        // Boundary push-back logic - Keeps player on screen during phase/mutators
+        if (this.y < 30) {
+            this.velocity += 1.5 * dt; // Push down
+        } else if (this.y > this.canvas.height - 30) {
+            this.velocity -= 1.5 * dt; // Push up
         }
 
         this.velocity += this.gravity * dt;
@@ -44,7 +47,9 @@ class AeroCraft {
         // Trail particles
         let trailChance = this.phasing ? 0.9 : 0.4;
         if (Math.random() > (1 - trailChance)) {
-            let trailId = window.game?.state?.selectedTrail || 'basic';
+            let trailId = 'basic';
+            if (window.game && window.game.state) trailId = window.game.state.selectedTrail;
+
             let tColor = this.phasing ? '#00ffff' : this.themeColor;
 
             if (!this.phasing) {
@@ -99,13 +104,14 @@ class AeroCraft {
         }
 
         // Particles
-        this.particles.forEach(p => {
+        for (let i = 0; i < this.particles.length; i++) {
+            let p = this.particles[i];
             ctx.globalAlpha = p.life * 0.7;
             ctx.fillStyle = p.color || this.themeColor;
             ctx.beginPath();
             ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
             ctx.fill();
-        });
+        }
         ctx.globalAlpha = 1.0;
 
         ctx.save();
@@ -141,7 +147,7 @@ class AeroCraft {
 
         // Sleek fuselage
         ctx.beginPath();
-        const charId = window.game?.selectedChar?.id || 'swift';
+        const charId = this.id;
         if (charId === 'glitch') {
             // Blocky glitchy shape
             ctx.rect(-10, -10, 20, 20);
@@ -209,7 +215,8 @@ class Pillar {
         this.x = x;
         this.width = 65;
         this.gap = gap;
-        this.top = Math.random() * (canvas.height - this.gap - 120) + 60;
+        let availableSpace = Math.max(100, canvas.height - this.gap - 120);
+        this.top = Math.random() * availableSpace + 60;
         this.bottom = canvas.height - (this.top + this.gap);
         this.passed = false;
         this.color = themeColor;
@@ -389,11 +396,12 @@ class BossHyperGuardian {
             this.shootTimer = 1500;
         }
 
-        this.projectiles.forEach((p, i) => {
+        for (let i = this.projectiles.length - 1; i >= 0; i--) {
+            let p = this.projectiles[i];
             p.x += p.vx * dt;
             p.y += p.vy * dt;
             if (p.x < -20) this.projectiles.splice(i, 1);
-        });
+        }
     }
     draw() {
         const ctx = this.ctx;
@@ -567,7 +575,7 @@ class Game {
 
         this.selectedChar = this.characters.find(c => c.id === this.state.selectedCraft) || this.characters[0];
 
-        this.craft = new AeroCraft(this.canvas, this.selectedChar.color);
+        this.craft = new AeroCraft(this.canvas, this.selectedChar.color, this.selectedChar.id);
         this.pillars = [];
         this.coins = [];
         this.powerups = [];
@@ -1050,6 +1058,7 @@ class Game {
 
     gameOver() {
         if (this.gameState === 'GAMEOVER') return;
+        if (this.craft.phasing || this.craft.invulnerable > 0) return;
 
         if (this.craft.shielded) {
             this.craft.shielded = false;
@@ -1205,10 +1214,10 @@ class Game {
 
         const bossUI = document.getElementById('bossHealthUI');
         const bossFill = document.getElementById('bossHealthFill');
-        if (this.boss) {
+        if (this.boss && bossUI && bossFill) {
             bossUI.style.display = 'flex';
             bossFill.style.width = (this.boss.timer / 15000) * 100 + '%';
-        } else {
+        } else if (bossUI) {
             bossUI.style.display = 'none';
         }
 
@@ -1261,35 +1270,42 @@ class Game {
     }
 
     loop(timestamp) {
-        let dt = (timestamp - this.lastTime) / 16.67;
-        this.lastTime = timestamp;
-        if (dt > 5) dt = 1;
+        try {
+            let dt = (timestamp - this.lastTime) / 16.67;
+            this.lastTime = timestamp;
+            if (dt > 5) dt = 1;
 
-        if (this.hitStop > 0) {
-            this.hitStop -= dt;
-            this.draw();
-            requestAnimationFrame((t) => this.loop(t));
-            return;
-        }
+            if (this.hitStop > 0) {
+                this.hitStop -= dt;
+                this.draw();
+                requestAnimationFrame((t) => this.loop(t));
+                return;
+            }
 
-        if (this.gameState === 'PLAYING') {
-            if (this.gameMode === 'time') {
-                this.timeLeft -= (dt * 16.67) / 1000;
-                if (this.timeLeft <= 0) {
-                    this.timeLeft = 0;
-                    this.gameOver();
+            if (this.gameState === 'PLAYING') {
+                if (this.gameMode === 'time') {
+                    this.timeLeft -= (dt * 16.67) / 1000;
+                    if (this.timeLeft <= 0) {
+                        this.timeLeft = 0;
+                        this.gameOver();
+                    }
+                }
+                if (this.gameState === 'PLAYING') {
+                    this.update(dt);
                 }
             }
-            this.update(dt);
-            this.updateUI();
-        }
 
-        this.draw();
-        requestAnimationFrame((t) => this.loop(t));
+            this.draw();
+            requestAnimationFrame((t) => this.loop(t));
+        } catch (e) {
+            console.error("Game Loop Error:", e);
+            requestAnimationFrame((t) => this.loop(t));
+        }
     }
 
     update(dt) {
-        let speedMult = this.activePowerups['slowmo'] > 0 ? 0.5 : 1.0;
+        this.updateUI();
+        let speedMult = (this.activePowerups['slowmo'] > 0) ? 0.5 : 1.0;
         let effectiveDt = dt * speedMult;
 
         this.craft.update(effectiveDt);
@@ -1297,20 +1313,22 @@ class Game {
         // Record ghost data
         this.runHistory.push({ y: this.craft.y, r: this.craft.rotation, p: this.craft.phasing });
 
-        this.stars.forEach((layer, i) => {
+        for (let i = 0; i < this.stars.length; i++) {
+            let layer = this.stars[i];
             let speed = (3 - i) * 0.4;
-            layer.forEach(s => {
+            for (let j = 0; j < layer.length; j++) {
+                let s = layer[j];
                 s.x -= speed * (this.mutator?.id === 'gravity_flip' ? effectiveDt * 0.5 : effectiveDt);
                 if (s.x < 0) s.x = this.canvas.width;
-            });
-        });
+            }
+        }
 
         if (this.boss) {
             this.boss.update(effectiveDt, this.craft.y);
-            this.updateUI(); // Keep health bar updated
 
             // Check projectile collisions
-            this.boss.projectiles.forEach((p, i) => {
+            for (let i = this.boss.projectiles.length - 1; i >= 0; i--) {
+                let p = this.boss.projectiles[i];
                 let dx = this.craft.x - p.x;
                 let dy = this.craft.y - p.y;
                 if (Math.sqrt(dx*dx + dy*dy) < this.craft.radius + 8) {
@@ -1320,7 +1338,7 @@ class Game {
                         this.gameOver();
                     }
                 }
-            });
+            }
 
             if (this.boss.timer <= 0) {
                 this.boss = null;
@@ -1398,7 +1416,7 @@ class Game {
             }
         }
 
-        for (let i = this.pillars.length - 1; i >= 0; i--) {
+        for (let i = (this.pillars ? this.pillars.length - 1 : -1); i >= 0; i--) {
             let p = this.pillars[i];
             p.update(effectiveDt, this.gameSpeed);
 
@@ -1458,7 +1476,6 @@ class Game {
 
                 this.combo++;
                 this.flash = 6;
-                this.updateUI();
                 if (window.audioManager) window.audioManager.playSound('score');
             }
             if (p.x + p.width < -100) this.pillars.splice(i, 1);
@@ -1472,7 +1489,6 @@ class Game {
             let dy = this.craft.y - c.y;
             if (Math.sqrt(dx*dx + dy*dy) < this.craft.radius + c.radius) {
                 this.coinsInRun++;
-                this.updateUI();
                 this.floaters.push(new ScoreFloater(c.x, c.y, '+1', '#ffd700'));
                 if (window.audioManager) window.audioManager.playSound('score');
 
@@ -1554,7 +1570,9 @@ class Game {
         }
 
         if (this.craft.y + this.craft.radius > this.canvas.height || this.craft.y - this.craft.radius < 0) {
-            this.gameOver();
+            if (!(this.craft.phasing || this.craft.invulnerable > 0)) {
+                this.gameOver();
+            }
         }
 
         if (this.shake > 0) this.shake -= dt;
@@ -1628,12 +1646,14 @@ class Game {
             }
         }
 
-        this.stars.forEach((layer, i) => {
+        for (let i = 0; i < this.stars.length; i++) {
+            let layer = this.stars[i];
             ctx.globalAlpha = (3 - i) * 0.25;
-            layer.forEach(s => {
+            for (let j = 0; j < layer.length; j++) {
+                let s = layer[j];
                 ctx.beginPath(); ctx.arc(s.x, s.y, s.s, 0, Math.PI * 2); ctx.fill();
-            });
-        });
+            }
+        }
         ctx.globalAlpha = 1.0;
 
         if (this.mutator?.id === 'gravity_flip') {
