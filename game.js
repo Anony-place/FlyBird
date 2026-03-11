@@ -46,6 +46,7 @@ class AeroCraft {
 
         // Trail particles
         let trailChance = this.phasing ? 0.9 : 0.4;
+        if (this.particles.length > 50) trailChance *= 0.5; // Throttle if too many
         if (Math.random() > (1 - trailChance)) {
             let trailId = 'basic';
             if (window.game && window.game.state) trailId = window.game.state.selectedTrail;
@@ -392,7 +393,9 @@ class BossHyperGuardian {
         this.shootTimer -= dt * 16.67;
 
         if (this.shootTimer <= 0) {
-            this.projectiles.push({ x: this.x, y: this.y, vx: -8, vy: (Math.random()-0.5)*4 });
+            if (this.projectiles.length < 5) {
+                this.projectiles.push({ x: this.x, y: this.y, vx: -8, vy: (Math.random()-0.5)*4 });
+            }
             this.shootTimer = 1500;
         }
 
@@ -428,7 +431,8 @@ class BossHyperGuardian {
         ctx.restore();
 
         // Projectiles
-        this.projectiles.forEach(p => {
+        for (let i = 0; i < this.projectiles.length; i++) {
+            let p = this.projectiles[i];
             ctx.fillStyle = '#00ffff';
             ctx.shadowBlur = 10;
             ctx.beginPath();
@@ -586,6 +590,7 @@ class Game {
         this.score = 0;
         this.combo = 1;
         this.gameMode = 'endless';
+        this.isReady = false;
         this.timeLeft = 60;
         this.warpMode = false;
         this.warpTimer = 0;
@@ -610,10 +615,18 @@ class Game {
         requestAnimationFrame((t) => this.loop(t));
 
         const splash = document.getElementById('startingAnimation');
-        splash.onclick = () => splash.style.display = 'none';
-        setTimeout(() => {
-            splash.style.display = 'none';
-        }, 2000);
+        if (splash) {
+            splash.onclick = () => {
+                splash.style.display = 'none';
+                this.isReady = true;
+            };
+            setTimeout(() => {
+                splash.style.display = 'none';
+                this.isReady = true;
+            }, 3000);
+        } else {
+            this.isReady = true;
+        }
     }
 
     saveState() {
@@ -1270,6 +1283,7 @@ class Game {
     }
 
     loop(timestamp) {
+        if (!this.lastTime) this.lastTime = timestamp;
         try {
             let dt = (timestamp - this.lastTime) / 16.67;
             this.lastTime = timestamp;
@@ -1618,8 +1632,8 @@ class Game {
         ctx.save();
 
         if (this.mutator?.id === 'mirror') {
+            ctx.translate(this.canvas.width, 0);
             ctx.scale(-1, 1);
-            ctx.translate(-this.canvas.width, 0);
         }
 
         if (this.shake > 0) {
@@ -1669,7 +1683,8 @@ class Game {
             ctx.restore();
         }
 
-        this.pillars.forEach(p => {
+        for (let i = 0; i < this.pillars.length; i++) {
+            let p = this.pillars[i];
             p.draw();
             // Safe Zone Indicator
             if (this.gameState === 'PLAYING' && !p.passed && p.x > this.craft.x && p.x < this.canvas.width) {
@@ -1698,10 +1713,10 @@ class Game {
             ctx.restore();
         }
 
-        this.drones.forEach(dr => dr.draw());
+        for (let i = 0; i < this.drones.length; i++) this.drones[i].draw();
         if (this.boss) this.boss.draw();
-        this.coins.forEach(c => c.draw());
-        this.powerups.forEach(pu => pu.draw());
+        for (let i = 0; i < this.coins.length; i++) this.coins[i].draw();
+        for (let i = 0; i < this.powerups.length; i++) this.powerups[i].draw();
 
         if (this.mutator?.id === 'tiny') {
             ctx.save();
@@ -1714,10 +1729,13 @@ class Game {
             this.craft.draw();
         }
 
-        this.floaters.forEach(f => f.draw(ctx));
+        for (let i = (this.floaters ? this.floaters.length - 1 : -1); i >= 0; i--) {
+            if (this.floaters[i]) this.floaters[i].draw(ctx);
+        }
 
         if (this.flash > 0) {
-            ctx.fillStyle = `rgba(255, 255, 255, ${this.flash * 0.08})`;
+            let opacity = Math.min(0.8, this.flash * 0.08);
+            ctx.fillStyle = `rgba(255, 255, 255, ${opacity})`;
             ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
         }
 

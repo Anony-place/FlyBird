@@ -9,6 +9,19 @@ class AudioManager {
         this.masterVolume = 0.7;
         this.isMuted = false;
         this.enabled = true;
+        this.lastSoundTimes = {};
+
+        // Pre-init on first interaction to reduce latency
+        const initAudio = () => {
+            this.init();
+            this.resume();
+            window.removeEventListener('mousedown', initAudio);
+            window.removeEventListener('keydown', initAudio);
+            window.removeEventListener('touchstart', initAudio);
+        };
+        window.addEventListener('mousedown', initAudio);
+        window.addEventListener('keydown', initAudio);
+        window.addEventListener('touchstart', initAudio);
     }
 
     init() {
@@ -31,6 +44,12 @@ class AudioManager {
 
     playSound(type) {
         if (!this.enabled || this.isMuted) return;
+
+        // Prevent sound spamming
+        const now = Date.now();
+        if (this.lastSoundTimes[type] && now - this.lastSoundTimes[type] < 50) return;
+        this.lastSoundTimes[type] = now;
+
         this.init();
         this.resume();
         if (!this.ctx) return;
