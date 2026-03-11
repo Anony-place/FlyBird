@@ -14,6 +14,7 @@ class AeroCraft {
 
     reset() {
         this.x = this.canvas.width / 4;
+        this.targetX = this.canvas.width / 4;
         this.y = this.canvas.height / 2;
         this.velocity = 0;
         this.gravity = 0.6;
@@ -32,6 +33,9 @@ class AeroCraft {
     update(dt) {
         if (this.phaseCooldown > 0) this.phaseCooldown -= dt * 16.67;
         if (this.invulnerable > 0) this.invulnerable -= dt * 16.67;
+
+        // X-Position smoothing for speed lean
+        this.x += (this.targetX - this.x) * 0.1 * dt;
 
         // Boundary push-back logic - Keeps player on screen during phase/mutators
         if (this.y < 30) {
@@ -382,7 +386,7 @@ class BossHyperGuardian {
     update(dt, playerY) {
         // Entry logic
         if (this.x > this.canvas.width - 250) {
-            this.x -= 2 * dt;
+            this.x -= 5 * dt; // Faster entry
         }
 
         // Hover logic
@@ -510,6 +514,21 @@ class Game {
     constructor() {
         this.canvas = document.getElementById('gameCanvas');
         this.ctx = this.canvas.getContext('2d');
+
+        // Cache UI elements
+        this.ui = {
+            score: document.getElementById('scoreValue'),
+            boss: document.getElementById('bossHealthUI'),
+            bossFill: document.getElementById('bossHealthFill'),
+            dashFill: document.getElementById('dashCooldownFill'),
+            progFill: document.getElementById('zoneProgressFill'),
+            progText: document.getElementById('zoneProgressText'),
+            comboMeter: document.getElementById('comboMeter'),
+            comboVal: document.getElementById('comboValue'),
+            coinsVal: document.getElementById('coinsValue'),
+            difficulty: document.getElementById('difficultyIndicator')
+        };
+        this.lastUiValues = {};
 
         this.resize();
         window.addEventListener('resize', () => this.resize());
@@ -1077,16 +1096,16 @@ class Game {
         if (this.craft.shielded) {
             this.craft.shielded = false;
             this.activePowerups['shield'] = 0;
-            this.shake = 10;
-            this.hitStop = 5;
-            this.flash = 10;
+            this.shake = 8;
+            this.hitStop = 2; // Snappier hit feel
+            this.flash = 8;
             if (window.audioManager) window.audioManager.playSound('hit');
             return;
         }
 
         this.gameState = 'GAMEOVER';
-        this.shake = 20;
-        this.hitStop = 12;
+        this.shake = 15;
+        this.hitStop = 8; // Snappier death transition
         if (window.audioManager) window.audioManager.playSound('hit');
 
         // ECOSYSTEM UPDATES
@@ -1222,70 +1241,75 @@ class Game {
     }
 
     updateUI() {
-        const scoreEl = document.getElementById('scoreValue');
-        if (!scoreEl) return;
-        scoreEl.innerText = this.score;
+        if (!this.ui.score) return;
 
-        const bossUI = document.getElementById('bossHealthUI');
-        const bossFill = document.getElementById('bossHealthFill');
-        if (this.boss && bossUI && bossFill) {
-            bossUI.style.display = 'flex';
-            bossFill.style.width = (this.boss.timer / 15000) * 100 + '%';
-        } else if (bossUI) {
-            bossUI.style.display = 'none';
+        // Only update DOM if values changed (Performance optimization)
+        if (this.lastUiValues.score !== this.score) {
+            this.ui.score.innerText = this.score;
+            this.lastUiValues.score = this.score;
         }
 
-        const dashFill = document.getElementById('dashCooldownFill');
-        if (dashFill) {
-            let pct = Math.max(0, 100 - (this.craft.phaseCooldown / 4000) * 100);
-            dashFill.style.width = pct + '%';
-            dashFill.style.backgroundColor = pct === 100 ? '#00ffff' : '#ff00ff';
+        if (this.boss) {
+            this.ui.boss.style.display = 'flex';
+            this.ui.bossFill.style.width = (this.boss.timer / 15000) * 100 + '%';
+        } else {
+            this.ui.boss.style.display = 'none';
+        }
+
+        let dashPct = Math.max(0, 100 - (this.craft.phaseCooldown / 4000) * 100);
+        if (this.lastUiValues.dash !== dashPct) {
+            this.ui.dashFill.style.width = dashPct + '%';
+            this.ui.dashFill.style.backgroundColor = dashPct === 100 ? '#00ffff' : '#ff00ff';
+            this.lastUiValues.dash = dashPct;
         }
 
         // Zone Progress
         const zone = this.zones[this.currentZoneIdx];
-        const progFill = document.getElementById('zoneProgressFill');
-        const progText = document.getElementById('zoneProgressText');
-        if (progFill) {
-            let pct = (this.score % 50) * 2;
-            progFill.style.width = pct + '%';
-            if (progText) progText.innerText = `${zone.name}: ${pct}%`;
+        let progPct = (this.score % 50) * 2;
+        if (this.lastUiValues.prog !== progPct) {
+            this.ui.progFill.style.width = progPct + '%';
+            this.ui.progText.innerText = `${zone.name}: ${progPct}%`;
+            this.lastUiValues.prog = progPct;
         }
 
-        const comboMeter = document.getElementById('comboMeter');
-        const comboVal = document.getElementById('comboValue');
-        const coinsVal = document.getElementById('coinsValue');
+        let comboValText = this.gameMode === 'time' ? Math.ceil(this.timeLeft) + 's' : 'x' + this.combo;
+        if (this.lastUiValues.comboVal !== comboValText) {
+            this.ui.comboVal.innerText = comboValText;
+            this.lastUiValues.comboVal = comboValText;
+        }
 
-        if (comboVal) comboVal.innerText = this.gameMode === 'time' ? Math.ceil(this.timeLeft) + 's' : 'x' + this.combo;
-        if (coinsVal) coinsVal.innerText = this.coinsInRun;
+        if (this.lastUiValues.coins !== this.coinsInRun) {
+            this.ui.coinsVal.innerText = this.coinsInRun;
+            this.lastUiValues.coins = this.coinsInRun;
+        }
 
-        if (comboMeter) {
+        if (this.lastUiValues.combo !== this.combo) {
             if (this.combo > 1) {
-                comboMeter.innerText = 'COMBO x' + this.combo;
-                comboMeter.classList.add('bump');
-                setTimeout(() => comboMeter.classList.remove('bump'), 200);
+                this.ui.comboMeter.innerText = 'COMBO x' + this.combo;
+                this.ui.comboMeter.classList.add('bump');
+                setTimeout(() => this.ui.comboMeter.classList.remove('bump'), 200);
             } else {
-                comboMeter.innerText = '';
+                this.ui.comboMeter.innerText = '';
             }
+            this.lastUiValues.combo = this.combo;
         }
 
-        const difficultyLabel = document.getElementById('difficultyIndicator');
-        if (difficultyLabel) {
-            if (this.gameMode === 'time') {
-                difficultyLabel.innerText = 'TIME ATTACK';
-                difficultyLabel.style.color = '#ffcc00';
-            } else if (this.warpMode) {
-                difficultyLabel.innerText = 'WARP MODE';
-                difficultyLabel.style.color = '#ff00ff';
-            } else if (this.mutator) {
-                difficultyLabel.innerText = 'DIMENSIONAL RIFT: ' + this.mutator.name;
-                difficultyLabel.style.color = '#00ffff';
-            } else {
-                let difficultyFactor = Math.min(1.0, this.score / 50);
-                if (difficultyFactor < 0.3) { difficultyLabel.innerText = 'EASY'; difficultyLabel.style.color = '#00ff88'; }
-                else if (difficultyFactor < 0.7) { difficultyLabel.innerText = 'MEDIUM'; difficultyLabel.style.color = '#ffff00'; }
-                else { difficultyLabel.innerText = 'HARD'; difficultyLabel.style.color = '#ff4b2b'; }
-            }
+        let diffText = '';
+        let diffColor = '';
+        if (this.gameMode === 'time') { diffText = 'TIME ATTACK'; diffColor = '#ffcc00'; }
+        else if (this.warpMode) { diffText = 'WARP MODE'; diffColor = '#ff00ff'; }
+        else if (this.mutator) { diffText = 'RIFT: ' + this.mutator.name; diffColor = '#00ffff'; }
+        else {
+            let df = Math.min(1.0, this.score / 50);
+            if (df < 0.3) { diffText = 'EASY'; diffColor = '#00ff88'; }
+            else if (df < 0.7) { diffText = 'MEDIUM'; diffColor = '#ffff00'; }
+            else { diffText = 'HARD'; diffColor = '#ff4b2b'; }
+        }
+
+        if (this.lastUiValues.diff !== diffText) {
+            this.ui.difficulty.innerText = diffText;
+            this.ui.difficulty.style.color = diffColor;
+            this.lastUiValues.diff = diffText;
         }
     }
 
@@ -1295,6 +1319,7 @@ class Game {
             let dt = (timestamp - this.lastTime) / 16.67;
             this.lastTime = timestamp;
             if (dt > 5) dt = 1;
+            if (dt <= 0) dt = 0.001;
 
             if (this.hitStop > 0) {
                 this.hitStop -= dt;
@@ -1334,12 +1359,56 @@ class Game {
         // Record ghost data
         this.runHistory.push({ y: this.craft.y, r: this.craft.rotation, p: this.craft.phasing });
 
+        // Pillars & Difficulty - Ultra-easy balancing
+        let difficultyFactor = Math.min(1.0, this.score / 100);
+        let currentGap = 320 - (difficultyFactor * 100); // Extremely generous starting gaps
+        let luckFactor = 1.0 + (this.state.upgrades.luck - 1) * 0.2;
+
+        // Speed & State Timers (Must tick even during boss)
+        if (this.warpMode) {
+            this.gameSpeed = 12.0;
+            this.warpTimer -= dt * 16.67;
+            this.craft.targetX = (this.canvas.width / 4) + 100; // Lean forward in warp
+            if (this.warpTimer <= 0) {
+                this.warpMode = false;
+                this.craft.targetX = this.canvas.width / 4;
+                document.querySelector('.game-container').classList.remove('warp-active');
+            }
+        } else {
+            this.gameSpeed = this.zones[this.currentZoneIdx].speed + (difficultyFactor * 2.5);
+            this.craft.targetX = this.canvas.width / 4;
+            if (this.score >= this.pointsToWarp && !this.boss) {
+                this.warpMode = true;
+                this.warpTimer = 5000;
+                this.pointsToWarp += 40;
+                this.shake = 15;
+                this.craft.shielded = true; // Speed-Shield grant
+                this.floaters.push(new ScoreFloater(this.craft.x, this.craft.y - 40, "SPEED SHIELD!", "#00ffff"));
+                document.querySelector('.game-container').classList.add('warp-active');
+                if (window.audioManager) window.audioManager.playSound('score');
+            }
+        }
+
+        // Mutators logic
+        if (this.mutator) {
+            this.mutatorTimer -= dt * 16.67;
+            if (this.mutatorTimer <= 0) {
+                this.mutator = null;
+                this.craft.gravity = this.zones[this.currentZoneIdx].gravity;
+                this.craft.jump = -6; // Unified jump power
+                this.craft.invulnerable = 1000; // 1s grace period after rift
+                document.querySelector('.game-container').classList.remove('rift-active');
+            }
+        }
+
+        // Star Background Parallax (Linked to gameSpeed)
         for (let i = 0; i < this.stars.length; i++) {
             let layer = this.stars[i];
-            let speed = (3 - i) * 0.4;
+            let layerBaseSpeed = (3 - i) * 0.15;
+            let starEffectiveSpeed = layerBaseSpeed * (this.gameSpeed * 0.8);
             for (let j = 0; j < layer.length; j++) {
                 let s = layer[j];
-                s.x -= speed * (this.mutator?.id === 'gravity_flip' ? effectiveDt * 0.5 : effectiveDt);
+                s.x -= starEffectiveSpeed * (this.mutator?.id === 'gravity_flip' ? effectiveDt * 0.5 : effectiveDt);
                 if (s.x < 0) s.x = this.canvas.width;
             }
         }
@@ -1368,25 +1437,9 @@ class Game {
                 this.state.xp += 1000;
                 if (window.audioManager) window.audioManager.playSound('score');
             }
-            return; // Skip normal pillar spawning during boss
         }
 
-        // Pillars & Difficulty - Ultra-easy balancing
-        let difficultyFactor = Math.min(1.0, this.score / 100);
-        let currentGap = 320 - (difficultyFactor * 100); // Extremely generous starting gaps
-        let luckFactor = 1.0 + (this.state.upgrades.luck - 1) * 0.2;
-
-        // Mutators logic
-        if (this.mutator) {
-            this.mutatorTimer -= dt * 16.67;
-            if (this.mutatorTimer <= 0) {
-                this.mutator = null;
-                this.craft.gravity = this.zones[this.currentZoneIdx].gravity;
-                this.craft.jump = -7;
-                this.craft.invulnerable = 1000; // 1s grace period after rift
-                document.querySelector('.game-container').classList.remove('rift-active');
-            }
-        } else if (this.score >= this.pointsToBoss) {
+        if (this.score >= this.pointsToBoss && !this.boss) {
             this.boss = new BossHyperGuardian(this.canvas);
             this.pointsToBoss += 100;
             this.shake = 30;
@@ -1398,28 +1451,7 @@ class Game {
             this.pointsToMutate += 35;
         }
 
-        if (this.warpMode) {
-            this.gameSpeed = 12.0;
-            this.warpTimer -= dt * 16.67;
-            if (this.warpTimer <= 0) {
-                this.warpMode = false;
-                document.querySelector('.game-container').classList.remove('warp-active');
-            }
-        } else {
-            this.gameSpeed = this.zones[this.currentZoneIdx].speed + (difficultyFactor * 2.5);
-            if (this.score >= this.pointsToWarp) {
-                this.warpMode = true;
-                this.warpTimer = 5000;
-                this.pointsToWarp += 40;
-                this.shake = 15;
-                this.craft.shielded = true; // Speed-Shield grant
-                this.floaters.push(new ScoreFloater(this.craft.x, this.craft.y - 40, "SPEED SHIELD!", "#00ffff"));
-                document.querySelector('.game-container').classList.add('warp-active');
-                if (window.audioManager) window.audioManager.playSound('score');
-            }
-        }
-
-        if (this.pillars.length === 0 || this.pillars[this.pillars.length - 1].x < this.canvas.width - (450 + difficultyFactor * 60)) {
+        if (!this.boss && (this.pillars.length === 0 || this.pillars[this.pillars.length - 1].x < this.canvas.width - (450 + difficultyFactor * 60))) {
             let newPillar = new Pillar(this.canvas, this.canvas.width, this.selectedChar.color, currentGap);
             this.pillars.push(newPillar);
 
@@ -1441,11 +1473,21 @@ class Game {
             let p = this.pillars[i];
             p.update(effectiveDt, this.gameSpeed);
 
+            // Dynamic Hitbox Scaling
+            let hX = 8;
+            let hY = 5;
+            let nearMissThreshold = 30;
+            if (this.mutator?.id === 'tiny') {
+                hX *= 0.5;
+                hY *= 0.5;
+                nearMissThreshold *= 0.5;
+            }
+
             // Near Miss Detection
             if (this.craft.x > p.x && this.craft.x < p.x + p.width) {
                 let distTop = Math.abs(this.craft.y - p.top);
                 let distBottom = Math.abs(this.craft.y - (this.canvas.height - p.bottom));
-                if ((distTop < 30 || distBottom < 30) && !p.nearMissed && !p.passed) {
+                if ((distTop < nearMissThreshold || distBottom < nearMissThreshold) && !p.nearMissed && !p.passed) {
                     p.nearMissed = true;
                     let bonus = this.warpMode ? 6 : 2;
                     this.score += bonus;
@@ -1455,9 +1497,9 @@ class Game {
                 }
             }
 
-            // Fair hitboxes: visual is radius 15, we use 8 for collision (very player-friendly)
-            if (this.craft.x + 8 > p.x && this.craft.x - 8 < p.x + p.width) {
-                if (this.craft.y - 5 < p.top || this.craft.y + 5 > this.canvas.height - p.bottom) {
+            // Fair hitboxes: visual is radius 15, we use hX/hY for collision (very player-friendly)
+            if (this.craft.x + hX > p.x && this.craft.x - hX < p.x + p.width) {
+                if (this.craft.y - hY < p.top || this.craft.y + hY > this.canvas.height - p.bottom) {
                     if (this.craft.phasing || this.craft.shielded || this.craft.invulnerable > 0) {
                         // Safe!
                     } else {
@@ -1509,7 +1551,8 @@ class Game {
             c.update(effectiveDt, this.gameSpeed, this.craft);
             let dx = this.craft.x - c.x;
             let dy = this.craft.y - c.y;
-            if (Math.sqrt(dx*dx + dy*dy) < this.craft.radius + c.radius) {
+            let effectiveRadius = this.craft.radius * (this.mutator?.id === 'tiny' ? 0.5 : 1.0);
+            if (Math.sqrt(dx*dx + dy*dy) < effectiveRadius + c.radius) {
                 this.coinsInRun++;
                 this.floaters.push(new ScoreFloater(c.x, c.y, '+1', '#ffd700'));
                 if (window.audioManager) window.audioManager.playSound('score');
@@ -1535,7 +1578,8 @@ class Game {
             dr.update(effectiveDt, this.gameSpeed);
             let dx = this.craft.x - dr.x;
             let dy = this.craft.y - dr.y;
-            if (Math.sqrt(dx*dx + dy*dy) < this.craft.radius + dr.radius) {
+            let effectiveRadius = this.craft.radius * (this.mutator?.id === 'tiny' ? 0.5 : 1.0);
+            if (Math.sqrt(dx*dx + dy*dy) < effectiveRadius + dr.radius) {
                 if (this.craft.phasing || this.craft.shielded || this.craft.invulnerable > 0) {
                     // Destroy drone
                     this.floaters.push(new ScoreFloater(dr.x, dr.y, 'DRONE DESTROYED', '#ff0044'));
@@ -1556,7 +1600,8 @@ class Game {
             pu.update(effectiveDt, this.gameSpeed);
             let dx = this.craft.x - pu.x;
             let dy = this.craft.y - pu.y;
-            if (Math.sqrt(dx*dx + dy*dy) < this.craft.radius + pu.radius) {
+            let effectiveRadius = this.craft.radius * (this.mutator?.id === 'tiny' ? 0.5 : 1.0);
+            if (Math.sqrt(dx*dx + dy*dy) < effectiveRadius + pu.radius) {
                 this.applyPowerup(pu.type);
                 this.floaters.push(new ScoreFloater(pu.x, pu.y, pu.type.toUpperCase(), '#fff'));
 
@@ -1657,13 +1702,14 @@ class Game {
 
         ctx.fillStyle = '#fff';
         if (this.gameSpeed > 8) {
-            ctx.strokeStyle = 'rgba(255,255,255,0.2)';
-            ctx.lineWidth = 1;
-            for(let i=0; i<10; i++) {
-                let y = (Math.sin(Date.now()*0.01 + i)*0.5 + 0.5) * this.canvas.height;
+            ctx.strokeStyle = `rgba(255,255,255,${0.1 + (this.gameSpeed - 8) * 0.05})`;
+            ctx.lineWidth = 2;
+            for(let i=0; i<15; i++) {
+                let y = ((i * 137) % this.canvas.height);
+                let x = (this.canvas.width * 2 - (Date.now() * (this.gameSpeed * 0.02) + (i * 500))) % this.canvas.width;
                 ctx.beginPath();
-                ctx.moveTo(0, y);
-                ctx.lineTo(this.canvas.width, y);
+                ctx.moveTo(x, y);
+                ctx.lineTo(x + 150, y);
                 ctx.stroke();
             }
         }
