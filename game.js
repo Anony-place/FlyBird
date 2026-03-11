@@ -25,14 +25,16 @@ class AeroCraft {
         this.magnetized = false;
         this.phasing = false;
         this.phaseCooldown = 0;
+        this.invulnerable = 0;
     }
 
     update(dt) {
         if (this.phaseCooldown > 0) this.phaseCooldown -= dt * 16.67;
+        if (this.invulnerable > 0) this.invulnerable -= dt * 16.67;
 
-        // Ceiling push-back logic
+        // Ceiling push-back logic - Always applies downward force regardless of current gravity sign
         if (this.y < 20) {
-            this.velocity += this.gravity * dt * 2;
+            this.velocity += 1.5 * dt;
         }
 
         this.velocity += this.gravity * dt;
@@ -83,12 +85,13 @@ class AeroCraft {
             }
         }
 
-        // Shield Effect
-        if (this.shielded) {
+        // Shield / Invulnerable Effect
+        if (this.shielded || this.invulnerable > 0) {
             ctx.save();
             ctx.translate(this.x, this.y);
-            ctx.strokeStyle = '#fff';
-            ctx.lineWidth = 3;
+            ctx.strokeStyle = this.invulnerable > 0 ? '#00ffff' : '#fff';
+            ctx.lineWidth = this.invulnerable > 0 ? 2 : 3;
+            if (this.invulnerable > 0) ctx.setLineDash([5, 5]);
             ctx.beginPath();
             ctx.arc(0, 0, 25 + Math.sin(this.pulse * 2) * 3, 0, Math.PI * 2);
             ctx.stroke();
@@ -193,6 +196,7 @@ class AeroCraft {
 
         setTimeout(() => {
             this.phasing = false;
+            this.invulnerable = 500; // 0.5s grace period
         }, 600); // 0.6s phase duration
         return true;
     }
@@ -1310,7 +1314,7 @@ class Game {
                 let dx = this.craft.x - p.x;
                 let dy = this.craft.y - p.y;
                 if (Math.sqrt(dx*dx + dy*dy) < this.craft.radius + 8) {
-                    if (this.craft.phasing || this.craft.shielded) {
+                    if (this.craft.phasing || this.craft.shielded || this.craft.invulnerable > 0) {
                         this.boss.projectiles.splice(i, 1);
                     } else {
                         this.gameOver();
@@ -1340,6 +1344,7 @@ class Game {
                 this.mutator = null;
                 this.craft.gravity = this.zones[this.currentZoneIdx].gravity;
                 this.craft.jump = -7;
+                this.craft.invulnerable = 1000; // 1s grace period after rift
                 document.querySelector('.game-container').classList.remove('rift-active');
             }
         } else if (this.score >= this.pointsToBoss) {
@@ -1347,6 +1352,7 @@ class Game {
             this.pointsToBoss += 100;
             this.shake = 30;
             this.flash = 20;
+            this.craft.invulnerable = 2000; // 2s grace during boss entry
             this.floaters.push(new ScoreFloater(this.canvas.width/2, this.canvas.height/2, 'BOSS INCOMING!', '#ff00ff'));
         } else if (this.score >= this.pointsToMutate) {
             this.triggerMutator();
@@ -1413,7 +1419,7 @@ class Game {
             // Fair hitboxes: visual is radius 15, we use 8 for collision (very player-friendly)
             if (this.craft.x + 8 > p.x && this.craft.x - 8 < p.x + p.width) {
                 if (this.craft.y - 5 < p.top || this.craft.y + 5 > this.canvas.height - p.bottom) {
-                    if (this.craft.phasing) {
+                    if (this.craft.phasing || this.craft.shielded || this.craft.invulnerable > 0) {
                         // Safe!
                     } else {
                         document.querySelector('.game-container').classList.add('glitch-fx');
@@ -1432,6 +1438,7 @@ class Game {
                     document.querySelector('.game-container').className = 'game-container zone-' + zone.id;
                     this.flash = 20;
                     this.shake = 15;
+                this.craft.invulnerable = 1500; // 1.5s grace period during zone transition
                     this.floaters.push(new ScoreFloater(this.canvas.width/2, this.canvas.height/2, "ENTERING " + zone.name, zone.color));
                     if (window.audioManager) window.audioManager.playSound('score');
                 }
@@ -1491,7 +1498,7 @@ class Game {
             let dx = this.craft.x - dr.x;
             let dy = this.craft.y - dr.y;
             if (Math.sqrt(dx*dx + dy*dy) < this.craft.radius + dr.radius) {
-                if (this.craft.phasing || this.craft.shielded) {
+                if (this.craft.phasing || this.craft.shielded || this.craft.invulnerable > 0) {
                     // Destroy drone
                     this.floaters.push(new ScoreFloater(dr.x, dr.y, 'DRONE DESTROYED', '#ff0044'));
                     this.shake = 10;
@@ -1574,6 +1581,7 @@ class Game {
         if (this.mutator.id === 'gravity_flip') {
             this.craft.gravity = this.mutator.gravity;
             this.craft.jump = 7; // Invert jump too
+            this.floaters.push(new ScoreFloater(this.canvas.width/2, this.canvas.height/2 + 60, "↑ CONTROLS INVERTED ↑", "#ff00ff"));
         }
     }
 
@@ -1627,6 +1635,19 @@ class Game {
             });
         });
         ctx.globalAlpha = 1.0;
+
+        if (this.mutator?.id === 'gravity_flip') {
+            ctx.save();
+            ctx.fillStyle = 'rgba(255, 0, 255, 0.1)';
+            ctx.fillRect(0, 0, this.canvas.width, 40);
+            ctx.fillRect(0, this.canvas.height-40, this.canvas.width, 40);
+            ctx.fillStyle = '#ff00ff';
+            ctx.font = 'bold 12px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText("↑ GRAVITY INVERTED ↑", this.canvas.width/2, 25);
+            ctx.fillText("↑ GRAVITY INVERTED ↑", this.canvas.width/2, this.canvas.height-15);
+            ctx.restore();
+        }
 
         this.pillars.forEach(p => {
             p.draw();
