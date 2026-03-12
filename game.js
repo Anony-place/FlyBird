@@ -87,6 +87,7 @@ class AeroCraft {
 
     draw() {
         const ctx = this.ctx;
+        ctx.save(); // Wrapper save for leaked translations/filters
 
         if (this.phasing) {
             ctx.filter = 'hue-rotate(90deg) contrast(1.5) brightness(1.2)';
@@ -195,7 +196,8 @@ class AeroCraft {
         ctx.arc(15, -1, 1.5, 0, Math.PI * 2);
         ctx.fill();
 
-        ctx.restore();
+        ctx.restore(); // Restore craft specific translate/rotate
+        ctx.restore(); // Restore wrapper save
         ctx.shadowBlur = 0;
         ctx.filter = 'none';
     }
@@ -582,8 +584,10 @@ class Game {
             { id: 'glitch', name: 'Glitch-Zero', color: '#00ff41', emoji: '👾', price: 25000 }
         ];
 
+        this.selectedChar = this.characters.find(c => c.id === this.state.selectedCraft) || this.characters[0];
+
         this.trails = [
-            { id: 'basic', name: 'Standard Plasma', color: this.selectedChar?.color || '#00f2fe', price: 0 },
+            { id: 'basic', name: 'Standard Plasma', color: this.selectedChar.color, price: 0 },
             { id: 'rainbow', name: 'Rainbow Pulse', color: 'RAINBOW', price: 500 },
             { id: 'matrix', name: 'Digital Rain', color: '#00ff41', price: 1000 },
             { id: 'fire', name: 'Hellfire', color: '#ff4b2b', price: 1500 }
@@ -595,8 +599,6 @@ class Game {
             { id: 'inferno', name: 'INFERNO', color: '#ff4b2b', gravity: 0.25, speed: 5.0 }
         ];
         this.currentZoneIdx = 0;
-
-        this.selectedChar = this.characters.find(c => c.id === this.state.selectedCraft) || this.characters[0];
 
         this.craft = new AeroCraft(this.canvas, this.selectedChar.color, this.selectedChar.id);
         this.pillars = [];
@@ -673,8 +675,8 @@ class Game {
 
     resize() {
         const container = this.canvas.parentElement;
-        this.canvas.width = container.clientWidth;
-        this.canvas.height = container.clientHeight;
+        this.canvas.width = container.clientWidth || 1280;
+        this.canvas.height = container.clientHeight || 720;
     }
 
     initStars() {
@@ -747,14 +749,6 @@ class Game {
     }
 
     renderShop() {
-        // Cleanup extra grids from previous renders
-        document.getElementById('tab-shop').querySelector('.menu-content').querySelectorAll('.shop-group-title').forEach(t => {
-            if (t.innerText === 'ENGINE TRAILS') t.remove();
-        });
-        document.getElementById('tab-shop').querySelector('.menu-content').querySelectorAll('.shop-grid').forEach((g, i) => {
-            if (i >= 2) g.remove(); // Keep CRAFTS and UPGRADES
-        });
-
         const craftGrid = document.getElementById('craftShopGrid');
         craftGrid.innerHTML = '';
         this.characters.forEach(char => {
@@ -773,6 +767,7 @@ class Game {
                     this.state.selectedCraft = char.id;
                     this.selectedChar = char;
                     this.craft.themeColor = char.color;
+                    this.craft.id = char.id;
                 } else if (this.state.coins >= char.price) {
                     this.state.coins -= char.price;
                     this.state.unlockedCrafts.push(char.id);
@@ -814,14 +809,8 @@ class Game {
             upgradeGrid.appendChild(item);
         });
 
-        const trailGrid = document.createElement('div');
-        trailGrid.className = 'shop-grid';
-        const trailTitle = document.createElement('div');
-        trailTitle.className = 'shop-group-title';
-        trailTitle.innerText = 'ENGINE TRAILS';
-        document.getElementById('tab-shop').querySelector('.menu-content').appendChild(trailTitle);
-        document.getElementById('tab-shop').querySelector('.menu-content').appendChild(trailGrid);
-
+        const trailGrid = document.getElementById('trailShopGrid');
+        trailGrid.innerHTML = '';
         this.trails.forEach(t => {
             const isUnlocked = this.state.unlockedTrails.includes(t.id);
             const isSelected = this.state.selectedTrail === t.id;
@@ -1095,9 +1084,10 @@ class Game {
 
         if (this.craft.shielded) {
             this.craft.shielded = false;
+            this.craft.invulnerable = 1500; // 1.5s grace period
             this.activePowerups['shield'] = 0;
             this.shake = 8;
-            this.hitStop = 2; // Snappier hit feel
+            this.hitStop = 3; // Snappier hit feel
             this.flash = 8;
             if (window.audioManager) window.audioManager.playSound('hit');
             return;
@@ -1636,7 +1626,8 @@ class Game {
             if (this.floaters[i].life <= 0) this.floaters.splice(i, 1);
         }
 
-        if (this.craft.y + this.craft.radius > this.canvas.height || this.craft.y - this.craft.radius < 0) {
+        let effectiveRadius = this.craft.radius * (this.mutator?.id === 'tiny' ? 0.5 : 1.0);
+        if (this.craft.y > this.canvas.height + 40 || this.craft.y < -40) {
             if (!(this.craft.phasing || this.craft.invulnerable > 0)) {
                 this.gameOver();
             }
@@ -1798,5 +1789,11 @@ class Game {
 }
 
 window.onload = () => {
+    if (window.CrazyGames && window.CrazyGames.SDK) {
+        window.CrazyGames.SDK.game.sdkGameLoadingStart();
+    }
     window.game = new Game();
+    if (window.CrazyGames && window.CrazyGames.SDK) {
+        window.CrazyGames.SDK.game.sdkGameLoadingStop();
+    }
 };
