@@ -1,19 +1,26 @@
-# Flappy Bird Ultimate 🐦
+# Aero Dash: Sky High 🚀
 
-A modern, feature-rich version of the classic Flappy Bird game built with HTML5 Canvas.
+A high-octane aerial navigation game built with HTML5 Canvas. Experience procedural neon environments, a deep progression system, and intense warp-speed gameplay!
 
 ## Features
-- 11 Unique Characters
-- 5 Difficulty Levels  
-- 7 Power-ups
-- Progressive Ranking System
-- Responsive Design
+- **8 Unique Aero Crafts:** Unlock and pilot Swift-X, Neon-Volt, Midas-1, Phantom-S, Solar-Flare, and more!
+- **Epic Boss Battles:** Survive against the Hyper-Guardian every 100 points to earn massive rewards.
+- **Dynamic Enemies:** Dodge Interceptor Drones patrolling the neon skies.
+- **Dynamic Zones:** Fly through Neon City, Dark Void, and Inferno—each with unique physics and speeds.
+- **Multiple Game Modes:** Test your skills in **Endless** mode or race against the clock in **Time Attack**.
+- **Warp Mode:** Reach score milestones to trigger high-speed warp sequences with 3x score multipliers.
+- **Ecosystem & Progression:** Earn XP, level up (1-50+), and collect Coins and Gems to purchase permanent upgrades.
+- **Persistent Upgrades:** Improve your Shield duration, Magnet range, Slow-Mo timing, and Luck Factor.
+- **Daily Quests:** Complete rotating daily missions for massive rewards.
+- **Near-Miss System:** High-risk, high-reward mechanic that grants bonus points for close calls with obstacles.
+- **CrazyGames SDK v2:** Full integration with rewarded ads for revives and currency boosts, plus mid-game ad support.
 
-PLAY now 
-https://flybird-bwo.pages.dev
+## Controls
+- **Space / Click / Tap:** Engage thrusters to ascend.
+- **Escape:** Pause the game.
 
 ## Technologies
-- HTML5 Canvas
-- JavaScript (ES6+)
-- CSS3 Animations
-- Web Audio API
+- HTML5 Canvas & procedural rendering.
+- JavaScript (ES6+) with frame-rate independent physics.
+- CSS3 Variable-based neon styling and filters.
+- Web Audio API for immersive spatial sound.

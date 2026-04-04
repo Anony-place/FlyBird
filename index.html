@@ -1,51 +1,90 @@
 <!DOCTYPE html>
 <html lang="en">
-<head><script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5826652112388036"
-     crossorigin="anonymous"></script>
+<head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Flappy Bird Ultimate</title>
+    <title>Aero Dash: Sky High</title>
     <link rel="stylesheet" href="style.css">
-</head><script type="text/javascript">
-	atOptions = {
-		'key' : 'cb3d6e98477124f0ef580f3d1670264a',
-		'format' : 'iframe',
-		'height' : 60,
-		'width' : 468,
-		'params' : {}
-	};
-</script>
-<script type="text/javascript" src="//www.highperformanceformat.com/cb3d6e98477124f0ef580f3d1670264a/invoke.js"></script>
+    <script src="https://sdk.crazygames.com/crazygames-sdk-v2.js"></script>
+</head>
 <body>
     <div class="game-container">
         <canvas id="gameCanvas"></canvas>
-        
-        <!-- Native Advanced Ad Container (for in-game ads) -->
-        <div id="native-ad-container" style="position: absolute; top: 10px; left: 10px; z-index: 100; max-width: 300px;"></div>
-        
-        <!-- Game UI Overlay -->
+
+        <!-- Top Navigation Bar (Always Visible in Menu) -->
+        <div class="top-nav-bar" id="topNavBar">
+            <div class="nav-player-info">
+                <div class="player-avatar">👤</div>
+                <div class="player-level-container">
+                    <div class="level-badge">LVL <span id="playerLevel">1</span></div>
+                    <div class="xp-bar-container">
+                        <div class="xp-bar-fill" id="xpBarFill" style="width: 20%"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="nav-currency">
+                <div class="currency-item coin-pill">
+                    <span class="currency-icon">💰</span>
+                    <span class="currency-value" id="navCoins">0</span>
+                    <button class="add-btn">+</button>
+                </div>
+                <div class="currency-item gem-pill">
+                    <span class="currency-icon">💎</span>
+                    <span class="currency-value" id="navGems">0</span>
+                    <button class="add-btn">+</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Game UI Overlay (During Gameplay) -->
         <div class="ui-overlay" id="gameUI">
+            <div class="zone-progress-container">
+                <div class="zone-progress-fill" id="zoneProgressFill"></div>
+                <div class="zone-progress-text" id="zoneProgressText">NEON CITY: 0%</div>
+            </div>
             <div class="ui-top-section">
-                <div class="score-display">
-                    <div class="score-item">
-                        <div class="score-label">SCORE</div>
-                        <div class="score-value" id="scoreValue">0</div>
-                    </div>
-                    <div class="score-item">
-                        <div class="score-label">COMBO</div>
-                        <div class="score-value combo-value" id="comboValue">x1</div>
-                    </div>
-                    <div class="score-item">
-                        <div class="score-label">COINS</div>
-                        <div class="score-value coin-value" id="coinsValue">0</div>
+                <div class="game-header-row">
+                    <button class="pause-btn-ingame" id="pauseBtnInGame">⏸</button>
+                    <div class="score-display">
+                        <div class="score-item">
+                            <div class="score-label">SCORE</div>
+                            <div class="score-value" id="scoreValue">0</div>
+                        </div>
+                        <div class="score-item">
+                            <div class="score-label">COMBO</div>
+                            <div class="score-value combo-value" id="comboValue">x1</div>
+                        </div>
+                        <div class="score-item">
+                            <div class="score-label">COINS</div>
+                            <div class="score-value coin-value" id="coinsValue">0</div>
+                        </div>
                     </div>
                 </div>
             </div>
             <div class="ui-middle-section">
+                <div class="combo-meter-container">
+                    <div id="comboMeter">COMBO x2</div>
+                </div>
+                <div class="ability-cooldown" id="dashCooldown">
+                    <div class="ability-icon">⚡</div>
+                    <div class="cooldown-bar">
+                        <div class="cooldown-fill" id="dashCooldownFill"></div>
+                    </div>
+                    <div class="ability-label">DASH (R-CLICK / SHIFT)</div>
+                </div>
                 <div class="power-ups-display" id="powerUpsDisplay"></div>
             </div>
             <div class="ui-bottom-section">
                 <div class="high-score-display">HIGH: <span id="highScoreValue">0</span></div>
+
+                <!-- Boss Health Bar -->
+                <div class="boss-health-container" id="bossHealthUI" style="display: none;">
+                    <div class="boss-name">HYPER-GUARDIAN</div>
+                    <div class="boss-bar">
+                        <div class="boss-fill" id="bossHealthFill"></div>
+                    </div>
+                </div>
+
                 <div class="difficulty-indicator" id="difficultyIndicator">EASY</div>
             </div>
         </div>
@@ -53,50 +92,126 @@
         <!-- Starting Animation Overlay -->
         <div class="starting-animation" id="startingAnimation">
             <div class="animation-content">
-                <div class="bird-logo">🐦</div>
-                <h2>FLAPPY BIRD</h2>
-                <p>ULTIMATE</p>
+                <div class="craft-logo">🚀</div>
+                <h2>AERO DASH</h2>
+                <p>SKY HIGH</p>
             </div>
         </div>
 
-        <!-- Main Menu -->
+        <!-- Main Lobby Menu -->
         <div class="menu-overlay" id="mainMenu">
-            <div class="menu-content">
-                <div class="menu-header">
-                    <h1 class="menu-title">🐦 FLAPPY BIRD</h1>
-                    <p class="menu-subtitle">ULTIMATE</p>
-                </div>
-                <p class="menu-tagline">Tap to Fly • Avoid Pipes • Get Coins</p>
-                
-                <!-- Player Rank in Menu -->
-                <div class="menu-player-rank" id="menuPlayerRank">
-                    <span class="rank-icon-small" id="menuRankIcon">🏆</span>
-                    <span class="rank-text-small" id="menuRankText">Rookie</span>
-                </div>
+            <!-- Navigation Tabs -->
+            <div class="lobby-tabs">
+                <button class="lobby-tab active" data-tab="lobby">LOBBY</button>
+                <button class="lobby-tab" data-tab="shop">SHOP</button>
+                <button class="lobby-tab" data-tab="quests">QUESTS</button>
+                <button class="lobby-tab" data-tab="stats">STATS</button>
+            </div>
 
-                <!-- Character Section -->
-                <div class="menu-section">
-                    <div class="menu-section-title">🐦 CHARACTER</div>
-                    <div class="character-select" id="characterSelect"></div>
-                </div>
+            <!-- Tab Content: Lobby -->
+            <div class="tab-content active" id="tab-lobby">
+                <div class="menu-content">
+                    <div class="lobby-visual">
+                        <div class="hero-craft-preview" id="lobbyCraftPreview">🚀</div>
+                        <div class="player-rank-badge">
+                            <span id="lobbyRankIcon">🏆</span>
+                            <span id="lobbyRankName">ROOKIE</span>
+                        </div>
+                    </div>
 
-                <!-- Difficulty Section -->
-                <div class="menu-section">
-                    <div class="menu-section-title">⚡ DIFFICULTY</div>
-                    <div class="difficulty-select" id="difficultySelect"></div>
-                </div>
+                    <div class="menu-header">
+                        <h1 class="menu-title">🚀 AERO DASH</h1>
+                    </div>
 
-                <!-- Primary Action Button -->
-                <div class="menu-section">
-                    <button class="button button-primary" id="playGameBtn">PLAY GAME</button>
-                </div>
+                    <div class="zone-selector">
+                        <button class="zone-btn prev-zone">◀</button>
+                        <div class="zone-info">
+                            <div class="zone-label">ZONE</div>
+                            <div class="zone-name" id="currentZoneName">NEON CITY</div>
+                        </div>
+                        <button class="zone-btn next-zone">▶</button>
+                    </div>
 
-                <!-- Menu Options Row -->
-                <div class="menu-section menu-options">
-                    <button class="button button-secondary" id="leaderboardBtn">🏆 LEADERBOARD</button>
-                    <button class="button button-secondary" id="achievementsBtn">🎖️ ACHIEVEMENTS</button>
-                    <button class="button button-secondary" id="settingsBtn">⚙️ SETTINGS</button>
-                    <button class="button button-secondary" id="aboutBtn">ℹ️ ABOUT</button>
+                    <div class="mode-selector">
+                        <div class="mode-label">GAME MODE</div>
+                        <div class="mode-toggle">
+                            <div class="mode-option active" data-mode="endless">ENDLESS</div>
+                            <div class="mode-option" data-mode="time">TIME ATTACK</div>
+                        </div>
+                    </div>
+
+                    <div class="play-section">
+                        <button class="button button-primary button-large" id="playGameBtn">FLY NOW</button>
+                    </div>
+
+                    <div class="daily-gift-container" id="dailyGiftContainer">
+                        <button class="button button-secondary" id="dailyAdBtn">
+                            🎁 DAILY GIFT (AD)
+                        </button>
+                    </div>
+
+                    <div class="quick-links">
+                        <button class="icon-button" id="settingsBtn">⚙️</button>
+                        <button class="icon-button" id="leaderboardBtn">🏆</button>
+                        <button class="icon-button" id="achievementsBtn">🎖️</button>
+                        <button class="icon-button" id="aboutBtn">ℹ️</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab Content: Shop -->
+            <div class="tab-content" id="tab-shop">
+                <div class="menu-content">
+                    <h2 class="tab-title">STARDUST SHOP</h2>
+                    <div class="shop-sections">
+                        <div class="shop-group">
+                            <div class="shop-group-title">CRAFTS</div>
+                            <div class="shop-grid" id="craftShopGrid"></div>
+                        </div>
+                        <div class="shop-group">
+                            <div class="shop-group-title">UPGRADES</div>
+                            <div class="shop-grid" id="upgradeShopGrid"></div>
+                        </div>
+                        <div class="shop-group">
+                            <div class="shop-group-title">ENGINE TRAILS</div>
+                            <div class="shop-grid" id="trailShopGrid"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab Content: Quests -->
+            <div class="tab-content" id="tab-quests">
+                <div class="menu-content">
+                    <h2 class="tab-title">DAILY MISSIONS</h2>
+                    <div class="quest-list" id="dailyQuestList">
+                        <!-- Quests injected by JS -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab Content: Stats -->
+            <div class="tab-content" id="tab-stats">
+                <div class="menu-content">
+                    <h2 class="tab-title">PILOT STATS</h2>
+                    <div class="stats-grid" id="playerStatsGrid">
+                        <div class="stat-card">
+                            <div class="stat-label">Total Flight Time</div>
+                            <div class="stat-value" id="statTime">00:00</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Total Distance</div>
+                            <div class="stat-value" id="statDist">0m</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Energy Cells</div>
+                            <div class="stat-value" id="statCoins">0</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Max Combo</div>
+                            <div class="stat-value" id="statCombo">x1</div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -120,7 +235,7 @@
                     <h2>⚙️ SETTINGS</h2>
                     <button class="close-btn" id="settingsCloseBtn">✕</button>
                 </div>
-                
+
                 <div class="settings-content">
                     <div class="settings-group">
                         <h3 class="group-title">AUDIO</h3>
@@ -201,16 +316,16 @@
                 </div>
                 <div class="about-content">
                     <div class="about-section">
-                        <h3>FLAPPY BIRD ULTIMATE</h3>
-                        <p>An enhanced classic arcade game with modern features, progression systems, and endless fun!</p>
+                        <h3>AERO DASH: SKY HIGH</h3>
+                        <p>A high-octane aerial navigation game with advanced progression, unique crafts, and dynamic challenges!</p>
                     </div>
 
                     <div class="about-section">
                         <h3>HOW TO PLAY</h3>
                         <ul>
-                            <li>✓ Tap or click to make your bird flap and fly</li>
-                            <li>✓ Avoid flying into the pipes</li>
-                            <li>✓ Pass through pipe gaps to earn points</li>
+                            <li>✓ Tap or click to engage thrusters and ascend</li>
+                            <li>✓ Navigate through the energy pillars</li>
+                            <li>✓ Pass through gates to earn energy points</li>
                             <li>✓ Collect power-ups for special abilities</li>
                         </ul>
                     </div>
@@ -218,28 +333,24 @@
                     <div class="about-section">
                         <h3>FEATURES</h3>
                         <ul>
-                            <li>✓ 11 Unique bird characters</li>
-                            <li>✓ 5 Difficulty levels (Very Easy to Extreme)</li>
-                            <li>✓ 7 Power-ups with special abilities</li>
-                            <li>✓ Dynamic difficulty scaling</li>
-                            <li>✓ Leaderboard tracking & rankings</li>
+                            <li>✓ 4 Unique Aero Crafts</li>
+                            <li>✓ Global Leaderboard & Rankings</li>
+                            <li>✓ Achievement Progression</li>
                             <li>✓ Combo system with multipliers</li>
                             <li>✓ Custom audio controls</li>
-                            <li>✓ Particle effects & screen shake</li>
-                            <li>✓ Score floaters & visual feedback</li>
+                            <li>✓ High-fidelity juice (Screen shake, Hit-stop)</li>
+                            <li>✓ Procedural Neon Graphics</li>
+                            <li>✓ Particle trails & Score floaters</li>
                         </ul>
                     </div>
-                    
+
                     <div class="about-section">
                         <h3>POWER-UPS</h3>
                         <ul>
                             <li>🛡 Shield - Protects from one collision</li>
-                            <li>⏱ Slow Motion - Slows down everything</li>
-                            <li>🧲 Magnet - Attracts coins</li>
-                            <li>2x Double Points - Doubles score</li>
-                            <li>👻 Ghost - Phase through pipes</li>
-                            <li>⚡ Speed Boost - Move faster</li>
-                            <li>💰 Coins - Collect for rewards</li>
+                            <li>⏱ Slow Motion - Brief time dilation</li>
+                            <li>🧲 Magnet - Attracts energy coins</li>
+                            <li>💰 Coins - Accumulate for ranking</li>
                         </ul>
                     </div>
                 </div>
@@ -250,7 +361,7 @@
         <div class="menu-overlay" id="gameOverScreen" style="display: none;">
             <div class="menu-content game-over-content">
                 <h1 class="game-over-title">GAME OVER</h1>
-                
+
                 <!-- Rank Display -->
                 <div class="rank-display" id="rankDisplay">
                     <div class="rank-icon" id="rankIcon">🏆</div>
@@ -259,7 +370,7 @@
                         <div class="rank-progress-fill" id="rankProgress" style="width: 0%"></div>
                     </div>
                 </div>
-                
+
                 <div class="game-over-stats">
                     <div class="stat-item">
                         <div class="stat-label">FINAL SCORE</div>
@@ -275,6 +386,12 @@
                     </div>
                 </div>
                 <div class="game-over-buttons">
+                    <button class="button button-primary" id="reviveBtn" style="display: none; background: linear-gradient(135deg, #ffd700, #ff8c00); color: #000;">
+                        <span>📺 REVIVE (AD)</span>
+                    </button>
+                    <button class="button button-primary" id="doubleRewardBtn" style="display: none; background: linear-gradient(135deg, #ff00ff, #7000ff);">
+                        <span>💎 DOUBLE COINS (AD)</span>
+                    </button>
                     <button class="button button-primary" id="retryBtn">TRY AGAIN</button>
                     <button class="button button-secondary" id="menuBtn">MAIN MENU</button>
                 </div>
@@ -282,27 +399,8 @@
         </div>
     </div>
 
-    <!-- AdMob Integration -->
-    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-XXXXXXXXXXXXXXXX"
-     crossorigin="anonymous"></script>
-
     <!-- Game Scripts -->
     <script src="audio.js"></script>
     <script src="game.js"></script>
-
-    <!-- AdMob Banner Ad in Menu -->
-    <div id="admob-banner" style="display: none; position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); z-index: 100;">
-        <ins class="adsbygoogle"
-             style="display:block"
-             data-ad-client="ca-pub-XXXXXXXXXXXXXXXX"
-             data-ad-slot="XXXXXXXXXX"
-             data-ad-format="auto"
-             data-full-width-responsive="true"></ins>
-        <script>
-             (adsbygoogle = window.adsbygoogle || []).push({});
-        </script>
-    </div>
 </body>
 </html>
-
-
