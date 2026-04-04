@@ -467,11 +467,16 @@ body {
     width: 100%;
     height: 100%;
     padding-top: 110px; /* Space for TopNav + Tabs */
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.4s ease, transform 0.4s ease;
 }
 
 .tab-content.active {
     display: flex;
     flex-direction: column;
+    opacity: 1;
+    transform: translateY(0);
 }
 
 /* Panels */
@@ -768,6 +773,25 @@ body {
     height: 100%;
     border-radius: 5px;
     transition: width 1s ease-out;
+}
+
+.level-up-splash {
+    animation: levelUpPop 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes levelUpPop {
+    0% { transform: scale(0.5); opacity: 0; filter: brightness(3); }
+    50% { transform: scale(1.2); opacity: 1; filter: brightness(1.5); }
+    100% { transform: scale(1); opacity: 1; filter: brightness(1); }
+}
+
+.quest-complete-anim {
+    animation: questSlide 0.5s ease-out;
+}
+
+@keyframes questSlide {
+    0% { transform: translateX(100px); opacity: 0; }
+    100% { transform: translateX(0); opacity: 1; }
 }
 
 .rank-display {

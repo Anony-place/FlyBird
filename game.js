@@ -35,9 +35,24 @@ class AeroCraft {
         this.phasing = false;
         this.phaseCooldown = 0;
         this.invulnerable = 0;
+        this.ultimateEnergy = 0;
+        this.ultimateMax = 100;
+        this.ultimateActive = false;
+        this.ultimateTimer = 0;
     }
 
     update(dt) {
+        if (this.ultimateTimer > 0) {
+            this.ultimateTimer -= dt * 16.67;
+            if (this.ultimateTimer <= 0) {
+                this.ultimateActive = false;
+                this.phasing = false;
+                this.invulnerable = 1000;
+            }
+        } else if (window.game && window.game.gameState === 'PLAYING') {
+            this.ultimateEnergy = Math.min(this.ultimateMax, this.ultimateEnergy + 0.1 * dt);
+        }
+
         if (this.phaseCooldown > 0) this.phaseCooldown -= dt * 16.67;
         if (this.invulnerable > 0) this.invulnerable -= dt * 16.67;
 
@@ -213,14 +228,53 @@ class AeroCraft {
     }
 
     phase() {
-        if (this.phaseCooldown > 0) return false;
+        if (this.phaseCooldown > 0 || this.ultimateActive) return false;
         this.phasing = true;
         this.phaseCooldown = 4000; // 4s cooldown
 
         setTimeout(() => {
-            this.phasing = false;
+            if (!this.ultimateActive) this.phasing = false;
             this.invulnerable = 500; // 0.5s grace period
         }, 600); // 0.6s phase duration
+        return true;
+    }
+
+    useUltimate() {
+        if (this.ultimateEnergy < this.ultimateMax || this.ultimateActive) return false;
+        this.ultimateEnergy = 0;
+        this.ultimateActive = true;
+
+        const id = this.id;
+        if (id === 'swift') {
+            this.ultimateTimer = 3000;
+            this.velocity = this.jump * 2;
+        } else if (id === 'neon') {
+            this.ultimateTimer = 5000;
+        } else if (id === 'emerald') {
+            this.ultimateTimer = 8000;
+            this.shielded = true;
+        } else if (id === 'gold') {
+            this.ultimateTimer = 6000;
+        } else if (id === 'phantom') {
+            this.ultimateTimer = 5000;
+            this.phasing = true;
+        } else if (id === 'solar') {
+            this.ultimateTimer = 1000;
+            if (window.game) window.game.clearObstacles();
+        } else if (id === 'void') {
+            this.ultimateTimer = 4000;
+            this.magnetized = true;
+        } else if (id === 'glitch') {
+            this.ultimateTimer = 2000;
+            if (window.game) window.game.triggerMutator();
+        }
+
+        if (window.game) {
+            window.game.shake = 20;
+            window.game.flash = 15;
+            window.game.spawnFloater(this.x, this.y - 40, "ULTIMATE: " + id.toUpperCase(), "#ff00ff");
+            if (window.audioManager) window.audioManager.playSound('score');
+        }
         return true;
     }
 }
@@ -322,6 +376,88 @@ class Pillar {
         ctx.lineTo(x, y + radius);
         ctx.quadraticCurveTo(x, y, x + radius, y);
         ctx.closePath();
+    }
+}
+
+class CrushingPiston {
+    constructor(canvas, x, color) {
+        this.canvas = canvas;
+        this.ctx = canvas.getContext('2d');
+        this.x = x;
+        this.width = 80;
+        this.gap = 180;
+        this.color = color;
+        this.timer = 0;
+        this.state = 'IDLE'; // IDLE, CRUSH, RETRACT
+        this.crushY = 0;
+        this.passed = false;
+    }
+    update(dt, speed) {
+        this.x -= speed * dt;
+        this.timer += 0.05 * dt;
+
+        // Piston oscillation
+        this.crushY = Math.abs(Math.sin(this.timer)) * (this.canvas.height / 2 - 50);
+    }
+    draw() {
+        const ctx = this.ctx;
+        ctx.save();
+        ctx.fillStyle = '#444';
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = this.color;
+
+        // Top block
+        ctx.fillRect(this.x, 0, this.width, this.crushY);
+        // Bottom block
+        ctx.fillRect(this.x, this.canvas.height - this.crushY, this.width, this.crushY);
+
+        // Hazards
+        ctx.fillStyle = '#ff0000';
+        ctx.fillRect(this.x, this.crushY - 10, this.width, 10);
+        ctx.fillRect(this.x, this.canvas.height - this.crushY, this.width, 10);
+
+        ctx.restore();
+    }
+}
+
+class OscillatingLaser {
+    constructor(canvas, x, color) {
+        this.canvas = canvas;
+        this.ctx = canvas.getContext('2d');
+        this.x = x;
+        this.y = canvas.height / 2;
+        this.width = 40;
+        this.color = color;
+        this.timer = 0;
+        this.passed = false;
+    }
+    update(dt, speed) {
+        this.x -= speed * dt;
+        this.timer += 0.03 * dt;
+        this.y = (this.canvas.height / 2) + Math.sin(this.timer) * (this.canvas.height / 3);
+    }
+    draw() {
+        const ctx = this.ctx;
+        ctx.save();
+
+        // Laser Core
+        ctx.shadowBlur = 20;
+        ctx.shadowColor = '#ff0000';
+        ctx.strokeStyle = '#ff0000';
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.moveTo(this.x, 0);
+        ctx.lineTo(this.x, this.y - 40);
+        ctx.moveTo(this.x, this.y + 40);
+        ctx.lineTo(this.x, this.canvas.height);
+        ctx.stroke();
+
+        // Nodes
+        ctx.fillStyle = '#333';
+        ctx.fillRect(this.x - 10, this.y - 50, 20, 20);
+        ctx.fillRect(this.x - 10, this.y + 30, 20, 20);
+
+        ctx.restore();
     }
 }
 
@@ -571,6 +707,7 @@ class Game {
             boss: document.getElementById('bossHealthUI'),
             bossFill: document.getElementById('bossHealthFill'),
             dashFill: document.getElementById('dashCooldownFill'),
+            ultFill: document.getElementById('ultimateEnergyFill'),
             progFill: document.getElementById('zoneProgressFill'),
             progText: document.getElementById('zoneProgressText'),
             comboMeter: document.getElementById('comboMeter'),
@@ -607,18 +744,31 @@ class Game {
                 maxCombo: 0
             },
             lastLogin: Date.now(),
+            loginStreak: 0,
+            tutorialSeen: false,
             dailyQuests: this.generateQuests()
         };
 
         const savedState = JSON.parse(localStorage.getItem('aeroDashState'));
         this.state = savedState ? { ...defaultState, ...savedState, upgrades: { ...defaultState.upgrades, ...(savedState.upgrades || {}) } } : defaultState;
 
-        // Daily Quest Refresh logic
+        // Daily Logic (Quests & Login Streak)
         const lastDate = new Date(this.state.lastLogin).toDateString();
+        const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
+        const yesterdayDate = yesterday.toDateString();
         const todayDate = new Date().toDateString();
-        if (lastDate !== todayDate) {
+
+        if (lastDate !== todayDate || (this.state.loginStreak === 0 && !this.state.tutorialSeen)) {
+            if (lastDate === yesterdayDate) {
+                this.state.loginStreak = (this.state.loginStreak % 7) + 1;
+            } else if (lastDate !== todayDate) {
+                this.state.loginStreak = 1;
+            }
+            if (this.state.loginStreak === 0) this.state.loginStreak = 1;
+
             this.state.dailyQuests = this.generateQuests();
             this.state.lastLogin = Date.now();
+            this.showDailyReward();
         }
 
         this.characters = [
@@ -658,6 +808,9 @@ class Game {
         this.stars = this.initStars();
         this.buildings = this.initBuildings();
 
+        this.pistons = [];
+        this.lasers = [];
+
         this.score = 0;
         this.combo = 1;
         this.gameMode = 'endless';
@@ -690,19 +843,51 @@ class Game {
         if (splash) {
             splash.onclick = () => {
                 splash.style.display = 'none';
+                this.checkTutorial();
                 this.isReady = true;
             };
             setTimeout(() => {
                 splash.style.display = 'none';
+                this.checkTutorial();
                 this.isReady = true;
             }, 3000);
         } else {
+            this.checkTutorial();
             this.isReady = true;
+        }
+    }
+
+    checkTutorial() {
+        if (!this.state.tutorialSeen) {
+            document.getElementById('tutorialOverlay').classList.add('active');
+            document.getElementById('startTutorialBtn').onclick = () => {
+                this.state.tutorialSeen = true;
+                document.getElementById('tutorialOverlay').classList.remove('active');
+                this.saveState();
+            };
         }
     }
 
     saveState() {
         localStorage.setItem('aeroDashState', JSON.stringify(this.state));
+    }
+
+    showDailyReward() {
+        const streak = this.state.loginStreak || 1;
+        const rewards = [200, 500, 1000, 2000, 5000, 10000, 25000];
+        const reward = rewards[streak - 1];
+
+        document.getElementById('rewardDayText').innerText = `Day ${streak} of 7`;
+        document.getElementById('rewardValue').innerText = `💰 ${reward}`;
+        document.getElementById('dailyRewardOverlay').classList.add('active');
+
+        document.getElementById('claimRewardBtn').onclick = () => {
+            this.state.coins += reward;
+            document.getElementById('dailyRewardOverlay').classList.remove('active');
+            this.refreshLobby();
+            if (window.audioManager) window.audioManager.playSound('score');
+            this.saveState();
+        };
     }
 
     generateQuests() {
@@ -947,6 +1132,9 @@ class Game {
                     if (window.audioManager) window.audioManager.playSound('thrust');
                 }
             }
+            if (e.code === 'KeyQ' || e.code === 'KeyR') {
+                if (this.gameState === 'PLAYING') this.craft.useUltimate();
+            }
             if (e.code === 'Escape' && this.gameState === 'PLAYING') this.pauseGame();
         });
         this.canvas.addEventListener('mousedown', (e) => {
@@ -1111,6 +1299,8 @@ class Game {
         this.warpTimer = 0;
         this.pointsToWarp = 30;
         this.pillars = [];
+        this.pistons = [];
+        this.lasers = [];
         this.coins = [];
         this.powerups = [];
         this.drones = [];
@@ -1250,6 +1440,11 @@ class Game {
             leveledUp = true;
         }
         if (leveledUp) {
+            const splash = document.getElementById('levelUpSplash');
+            if (splash) {
+                splash.classList.add('active');
+                setTimeout(() => splash.classList.remove('active'), 3000);
+            }
             this.spawnFloater(this.canvas.width/2, this.canvas.height/2, 'LEVEL UP!', '#00f2fe');
             if (window.audioManager) window.audioManager.playSound('score');
         }
@@ -1385,6 +1580,13 @@ class Game {
             this.ui.dashFill.style.width = dashPct + '%';
             this.ui.dashFill.style.backgroundColor = dashPct === 100 ? '#00ffff' : '#ff00ff';
             this.lastUiValues.dash = dashPct;
+        }
+
+        let ultPct = (this.craft.ultimateEnergy / this.craft.ultimateMax) * 100;
+        if (this.lastUiValues.ult !== ultPct) {
+            this.ui.ultFill.style.width = ultPct + '%';
+            this.ui.ultFill.style.backgroundColor = ultPct === 100 ? '#ffffff' : '#ff00ff';
+            this.lastUiValues.ult = ultPct;
         }
 
         // Zone Progress
@@ -1582,6 +1784,15 @@ class Game {
         }
 
         if (!this.boss && (this.pillars.length === 0 || this.pillars[this.pillars.length - 1].x < this.canvas.width - (450 + difficultyFactor * 60))) {
+            // Zone-specific obstacle variety
+            const zoneId = this.zones[this.currentZoneIdx].id;
+
+            if (zoneId === 'void' && Math.random() < 0.2 + difficultyFactor * 0.3) {
+                this.lasers.push(new OscillatingLaser(this.canvas, this.canvas.width, this.selectedChar.color));
+            } else if (zoneId === 'inferno' && Math.random() < 0.2 + difficultyFactor * 0.3) {
+                this.pistons.push(new CrushingPiston(this.canvas, this.canvas.width, this.selectedChar.color));
+            }
+
             let newPillar = new Pillar(this.canvas, this.canvas.width, this.selectedChar.color, currentGap);
             this.pillars.push(newPillar);
 
@@ -1597,6 +1808,40 @@ class Game {
             if (this.score > 20 && Math.random() < 0.3) {
                 this.drones.push(new EnemyDrone(this.canvas, this.canvas.width + 200, Math.random() * (this.canvas.height - 100) + 50));
             }
+        }
+
+        // Update Pistons
+        for (let i = this.pistons.length - 1; i >= 0; i--) {
+            let p = this.pistons[i];
+            p.update(effectiveDt, this.gameSpeed);
+            if (this.craft.x + 8 > p.x && this.craft.x - 8 < p.x + p.width) {
+                if (this.craft.y - 5 < p.crushY || this.craft.y + 5 > this.canvas.height - p.crushY) {
+                    if (!(this.craft.phasing || this.craft.shielded || this.craft.invulnerable > 0)) this.gameOver();
+                }
+            }
+            if (!p.passed && p.x + p.width < this.craft.x) {
+                p.passed = true;
+                this.score += 5; // Bonus for advanced obstacle
+                this.spawnFloater(p.x, p.y || this.canvas.height / 2, "PISTON BYPASS +5", "#ff00ff");
+            }
+            if (p.x < -100) this.pistons.splice(i, 1);
+        }
+
+        // Update Lasers
+        for (let i = this.lasers.length - 1; i >= 0; i--) {
+            let l = this.lasers[i];
+            l.update(effectiveDt, this.gameSpeed);
+            if (Math.abs(this.craft.x - l.x) < 15) {
+                if (this.craft.y < l.y - 40 || this.craft.y > l.y + 40) {
+                    if (!(this.craft.phasing || this.craft.shielded || this.craft.invulnerable > 0)) this.gameOver();
+                }
+            }
+            if (!l.passed && l.x < this.craft.x) {
+                l.passed = true;
+                this.score += 5;
+                this.spawnFloater(l.x, l.y, "LASER ESCAPE +5", "#00ffff");
+            }
+            if (l.x < -100) this.lasers.splice(i, 1);
         }
 
         for (let i = (this.pillars ? this.pillars.length - 1 : -1); i >= 0; i--) {
@@ -1670,6 +1915,7 @@ class Game {
 
                 this.combo++;
                 this.flash = 6;
+                this.craft.ultimateEnergy = Math.min(this.craft.ultimateMax, this.craft.ultimateEnergy + 2);
                 if (window.audioManager) window.audioManager.playSound('score');
             }
             if (p.x + p.width < -100) this.pillars.splice(i, 1);
@@ -1783,6 +2029,13 @@ class Game {
         if (this.craft.particles.length > 100) this.craft.particles.splice(0, 20);
     }
 
+    clearObstacles() {
+        this.pillars = [];
+        this.drones = [];
+        this.shake = 10;
+        this.spawnFloater(this.canvas.width/2, this.canvas.height/2, "SKY CLEARED!", "#ffcc00");
+    }
+
     triggerMutator() {
         const mutators = [
             { id: 'gravity_flip', name: 'GRAVITY FLIP', gravity: -0.2 },
@@ -1891,6 +2144,9 @@ class Game {
             ctx.fillText("↑ GRAVITY INVERTED ↑", this.canvas.width/2, this.canvas.height-15);
             ctx.restore();
         }
+
+        for (let i = 0; i < this.pistons.length; i++) this.pistons[i].draw();
+        for (let i = 0; i < this.lasers.length; i++) this.lasers[i].draw();
 
         for (let i = 0; i < this.pillars.length; i++) {
             let p = this.pillars[i];
