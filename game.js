@@ -39,9 +39,38 @@ class AeroCraft {
         this.ultimateMax = 100;
         this.ultimateActive = false;
         this.ultimateTimer = 0;
+        this.projectiles = [];
+        this.shootTimer = 0;
     }
 
     update(dt) {
+        if (window.game && window.game.boss) {
+            this.shootTimer -= dt * 16.67;
+            if (this.shootTimer <= 0) {
+                this.projectiles.push({ x: this.x + 20, y: this.y, vx: 12, life: 1.0 });
+                this.shootTimer = 400; // Fast auto-firing
+                if (window.audioManager) window.audioManager.playSound('thrust');
+            }
+        }
+
+        // Projectile physics and collision
+        for (let i = this.projectiles.length - 1; i >= 0; i--) {
+            let p = this.projectiles[i];
+            p.x += p.vx * dt;
+            if (window.game && window.game.boss) {
+                let dx = p.x - window.game.boss.x;
+                let dy = p.y - window.game.boss.y;
+                if (Math.abs(dx) < 60 && Math.abs(dy) < 60) {
+                    window.game.boss.health -= 5;
+                    window.game.shake = 5;
+                    window.game.spawnFloater(p.x, p.y, 'HIT!', '#ff0000');
+                    this.projectiles.splice(i, 1);
+                    continue;
+                }
+            }
+            if (p.x > this.canvas.width) this.projectiles.splice(i, 1);
+        }
+
         if (this.ultimateTimer > 0) {
             this.ultimateTimer -= dt * 16.67;
             if (this.ultimateTimer <= 0) {
@@ -222,6 +251,18 @@ class AeroCraft {
         ctx.fill();
 
         ctx.restore(); // Restore craft specific translate/rotate
+
+        // Draw Player Projectiles
+        for (let i = 0; i < this.projectiles.length; i++) {
+            let p = this.projectiles[i];
+            ctx.fillStyle = '#00f2fe';
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = '#00f2fe';
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, 6, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
         ctx.restore(); // Restore wrapper save
         ctx.shadowBlur = 0;
         ctx.filter = 'none';
@@ -552,35 +593,43 @@ class BossHyperGuardian {
     constructor(canvas) {
         this.canvas = canvas;
         this.ctx = canvas.getContext('2d');
-        this.x = canvas.width + 200;
+        this.x = canvas.width + 300;
         this.y = canvas.height / 2;
-        this.width = 120;
-        this.height = 150;
-        this.health = 100;
-        this.maxHealth = 100;
-        this.timer = 15000; // 15s encounter
+        this.health = 150;
+        this.maxHealth = 150;
         this.projectiles = [];
         this.shootTimer = 0;
         this.targetY = canvas.height / 2;
+        this.rotation = 0;
+        this.pulse = 0;
     }
     update(dt, playerY) {
+        this.rotation += 0.05 * dt;
+        this.pulse += 0.1 * dt;
+
         // Entry logic
-        if (this.x > this.canvas.width - 250) {
-            this.x -= 5 * dt; // Faster entry
+        if (this.x > this.canvas.width - 280) {
+            this.x -= 4 * dt;
         }
 
-        // Hover logic
+        // Aggressive hover
         this.targetY = playerY;
-        this.y += (this.targetY - this.y) * 0.05 * dt;
+        this.y += (this.targetY - this.y) * 0.08 * dt;
 
-        this.timer -= dt * 16.67;
         this.shootTimer -= dt * 16.67;
 
         if (this.shootTimer <= 0) {
-            if (this.projectiles.length < 5) {
-                this.projectiles.push({ x: this.x, y: this.y, vx: -8, vy: (Math.random()-0.5)*4 });
+            // Rapid spread shot
+            for(let i=0; i<3; i++) {
+                this.projectiles.push({
+                    x: this.x - 40,
+                    y: this.y,
+                    vx: -10 - Math.random() * 5,
+                    vy: (i - 1) * 3 + (Math.random() - 0.5) * 2,
+                    size: 10
+                });
             }
-            this.shootTimer = 1500;
+            this.shootTimer = 1200;
         }
 
         for (let i = this.projectiles.length - 1; i >= 0; i--) {
@@ -595,21 +644,46 @@ class BossHyperGuardian {
         ctx.save();
         ctx.translate(this.x, this.y);
 
-        // Boss Body
-        ctx.fillStyle = '#ff00ff';
-        ctx.shadowBlur = 30;
+        // Outer rotating shield shards
+        ctx.strokeStyle = '#ff0044';
+        ctx.lineWidth = 4;
+        for(let i=0; i<4; i++) {
+            ctx.save();
+            ctx.rotate(this.rotation + (i * Math.PI / 2));
+            ctx.strokeRect(80, -20, 10, 40);
+            ctx.restore();
+        }
+
+        // Menacing Body
+        let grad = ctx.createRadialGradient(0, 0, 10, 0, 0, 70);
+        grad.addColorStop(0, '#ff00ff');
+        grad.addColorStop(1, '#220022');
+        ctx.fillStyle = grad;
+        ctx.shadowBlur = 40 + Math.sin(this.pulse) * 20;
         ctx.shadowColor = '#ff00ff';
 
         ctx.beginPath();
-        ctx.moveTo(0, -60); ctx.lineTo(40, -40); ctx.lineTo(60, 0); ctx.lineTo(40, 40); ctx.lineTo(0, 60);
-        ctx.lineTo(-40, 40); ctx.lineTo(-60, 0); ctx.lineTo(-40, -40);
+        for(let i=0; i<8; i++) {
+            let r = 60 + Math.sin(this.pulse + i) * 10;
+            let ang = i * Math.PI / 4;
+            ctx.lineTo(Math.cos(ang) * r, Math.sin(ang) * r);
+        }
         ctx.closePath();
         ctx.fill();
 
-        // Eye
+        // Multiple Eyes
+        ctx.fillStyle = '#ff0000';
+        ctx.shadowBlur = 10;
+        for(let i=0; i<3; i++) {
+            ctx.beginPath();
+            ctx.arc(-30, (i-1) * 25, 8 + Math.sin(this.pulse)*2, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // Core
         ctx.fillStyle = '#fff';
         ctx.beginPath();
-        ctx.arc(-20, 0, 15 + Math.sin(Date.now()*0.01)*5, 0, Math.PI * 2);
+        ctx.arc(0, 0, 15 + Math.sin(this.pulse * 2) * 5, 0, Math.PI * 2);
         ctx.fill();
 
         ctx.restore();
@@ -617,10 +691,16 @@ class BossHyperGuardian {
         // Projectiles
         for (let i = 0; i < this.projectiles.length; i++) {
             let p = this.projectiles[i];
-            ctx.fillStyle = '#00ffff';
-            ctx.shadowBlur = 10;
+            ctx.fillStyle = '#ff0044';
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = '#ff0044';
             ctx.beginPath();
-            ctx.arc(p.x, p.y, 8, 0, Math.PI * 2);
+            ctx.arc(p.x, p.y, p.size || 8, 0, Math.PI * 2);
+            ctx.fill();
+            // Core of projectile
+            ctx.fillStyle = '#fff';
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, (p.size || 8) / 2, 0, Math.PI * 2);
             ctx.fill();
         }
     }
@@ -1561,7 +1641,7 @@ class Game {
         }
 
         if (this.boss) {
-            const bossPct = (this.boss.timer / 15000) * 100;
+            const bossPct = (this.boss.health / this.boss.maxHealth) * 100;
             if (this.lastUiValues.bossDisplay !== 'flex') {
                 this.ui.boss.style.display = 'flex';
                 this.lastUiValues.bossDisplay = 'flex';
@@ -1740,7 +1820,7 @@ class Game {
             let starEffectiveSpeed = layerBaseSpeed * (this.gameSpeed * 0.8);
             for (let j = 0; j < layer.length; j++) {
                 let s = layer[j];
-                s.x -= starEffectiveSpeed * (this.mutator?.id === 'gravity_flip' ? effectiveDt * 0.5 : effectiveDt);
+                s.x -= starEffectiveSpeed * effectiveDt;
                 if (s.x < 0) s.x = this.canvas.width;
             }
         }
@@ -1753,7 +1833,7 @@ class Game {
                 let p = this.boss.projectiles[i];
                 let dx = this.craft.x - p.x;
                 let dy = this.craft.y - p.y;
-                if (Math.sqrt(dx*dx + dy*dy) < this.craft.radius + 8) {
+                if (Math.sqrt(dx*dx + dy*dy) < this.craft.radius + (p.size || 8)) {
                     if (this.craft.phasing || this.craft.shielded || this.craft.invulnerable > 0) {
                         this.boss.projectiles.splice(i, 1);
                     } else {
@@ -1762,11 +1842,13 @@ class Game {
                 }
             }
 
-            if (this.boss.timer <= 0) {
+            if (this.boss.health <= 0) {
                 this.boss = null;
-                this.spawnFloater(this.canvas.width/2, this.canvas.height/2, 'BOSS DEFEATED!', '#ffd700');
-                this.state.gems += 20;
-                this.state.xp += 1000;
+                this.spawnFloater(this.canvas.width/2, this.canvas.height/2, 'BOSS DESTROYED!', '#ffd700');
+                this.state.gems += 25;
+                this.state.xp += 1500;
+                this.shake = 30;
+                this.flash = 25;
                 if (window.audioManager) window.audioManager.playSound('score');
             }
         }
@@ -2038,8 +2120,6 @@ class Game {
 
     triggerMutator() {
         const mutators = [
-            { id: 'gravity_flip', name: 'GRAVITY FLIP', gravity: -0.2 },
-            { id: 'mirror', name: 'MIRROR MODE' },
             { id: 'tiny', name: 'TINY CRAFT' }
         ];
         this.mutator = mutators[Math.floor(Math.random() * mutators.length)];
@@ -2049,12 +2129,6 @@ class Game {
         document.querySelector('.game-container').classList.add('rift-active');
         if (window.audioManager) window.audioManager.playSound('score');
         this.spawnFloater(this.canvas.width/2, this.canvas.height/2, "RIFT: " + this.mutator.name, "#00ffff");
-
-        if (this.mutator.id === 'gravity_flip') {
-            this.craft.gravity = this.mutator.gravity;
-            this.craft.jump = 7; // Invert jump too
-            this.spawnFloater(this.canvas.width/2, this.canvas.height/2 + 60, "↑ CONTROLS INVERTED ↑", "#ff00ff");
-        }
     }
 
     applyPowerup(type) {
@@ -2076,11 +2150,6 @@ class Game {
         ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
         ctx.save();
-
-        if (this.mutator?.id === 'mirror') {
-            ctx.translate(this.canvas.width, 0);
-            ctx.scale(-1, 1);
-        }
 
         if (this.shake > 0) {
             ctx.translate((Math.random() - 0.5) * this.shake, (Math.random() - 0.5) * this.shake);
@@ -2131,19 +2200,6 @@ class Game {
             }
         }
         ctx.globalAlpha = 1.0;
-
-        if (this.mutator?.id === 'gravity_flip') {
-            ctx.save();
-            ctx.fillStyle = 'rgba(255, 0, 255, 0.1)';
-            ctx.fillRect(0, 0, this.canvas.width, 40);
-            ctx.fillRect(0, this.canvas.height-40, this.canvas.width, 40);
-            ctx.fillStyle = '#ff00ff';
-            ctx.font = 'bold 12px Arial';
-            ctx.textAlign = 'center';
-            ctx.fillText("↑ GRAVITY INVERTED ↑", this.canvas.width/2, 25);
-            ctx.fillText("↑ GRAVITY INVERTED ↑", this.canvas.width/2, this.canvas.height-15);
-            ctx.restore();
-        }
 
         for (let i = 0; i < this.pistons.length; i++) this.pistons[i].draw();
         for (let i = 0; i < this.lasers.length; i++) this.lasers[i].draw();
