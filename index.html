@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Aero Dash: Sky High</title>
+    <title>Neon Ghost: Phase Runner</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://sdk.crazygames.com/crazygames-sdk-v2.js"></script>
 </head>
@@ -14,7 +14,7 @@
         <!-- Top Navigation Bar (Always Visible in Menu) -->
         <div class="top-nav-bar" id="topNavBar">
             <div class="nav-player-info">
-                <div class="player-avatar">👤</div>
+                <div class="player-avatar"><div class="avatar-icon"></div></div>
                 <div class="player-level-container">
                     <div class="level-badge">LVL <span id="playerLevel">1</span></div>
                     <div class="xp-bar-container">
@@ -24,12 +24,12 @@
             </div>
             <div class="nav-currency">
                 <div class="currency-item coin-pill">
-                    <span class="currency-icon">💰</span>
+                    <span class="currency-icon-cell"></span>
                     <span class="currency-value" id="navCoins">0</span>
                     <button class="add-btn">+</button>
                 </div>
                 <div class="currency-item gem-pill">
-                    <span class="currency-icon">💎</span>
+                    <span class="currency-icon-gem"></span>
                     <span class="currency-value" id="navGems">0</span>
                     <button class="add-btn">+</button>
                 </div>
@@ -44,7 +44,7 @@
             </div>
             <div class="ui-top-section">
                 <div class="game-header-row">
-                    <button class="pause-btn-ingame" id="pauseBtnInGame">⏸</button>
+                    <button class="pause-btn-ingame" id="pauseBtnInGame" aria-label="Pause"><div class="icon-pause"></div></button>
                     <div class="score-display">
                         <div class="score-item">
                             <div class="score-label">SCORE</div>
@@ -66,7 +66,7 @@
                     <div id="comboMeter">COMBO x2</div>
                 </div>
                 <div class="ability-cooldown" id="dashCooldown">
-                    <div class="ability-icon">⚡</div>
+                    <div class="ability-icon"><div class="icon-bolt"></div></div>
                     <div class="cooldown-bar">
                         <div class="cooldown-fill" id="dashCooldownFill"></div>
                     </div>
@@ -92,9 +92,9 @@
         <!-- Starting Animation Overlay -->
         <div class="starting-animation" id="startingAnimation">
             <div class="animation-content">
-                <div class="craft-logo">🚀</div>
-                <h2>AERO DASH</h2>
-                <p>SKY HIGH</p>
+                <div class="craft-logo"><div class="logo-shape"></div></div>
+                <h2>NEON GHOST</h2>
+                <p>PHASE RUNNER</p>
             </div>
         </div>
 
@@ -120,16 +120,17 @@
                     </div>
 
                     <div class="menu-header">
-                        <h1 class="menu-title">🚀 AERO DASH</h1>
+                        <h1 class="menu-title">NEON GHOST</h1>
+                        <div class="menu-subtitle">PHASE RUNNER</div>
                     </div>
 
                     <div class="zone-selector">
-                        <button class="zone-btn prev-zone">◀</button>
+                        <button class="zone-btn prev-zone" aria-label="Previous Zone"><div class="arrow-left"></div></button>
                         <div class="zone-info">
                             <div class="zone-label">ZONE</div>
                             <div class="zone-name" id="currentZoneName">NEON CITY</div>
                         </div>
-                        <button class="zone-btn next-zone">▶</button>
+                        <button class="zone-btn next-zone" aria-label="Next Zone"><div class="arrow-right"></div></button>
                     </div>
 
                     <div class="mode-selector">
@@ -146,15 +147,15 @@
 
                     <div class="daily-gift-container" id="dailyGiftContainer">
                         <button class="button button-secondary" id="dailyAdBtn">
-                            🎁 DAILY GIFT (AD)
+                            <div class="icon-gift"></div> DAILY GIFT (AD)
                         </button>
                     </div>
 
                     <div class="quick-links">
-                        <button class="icon-button" id="settingsBtn">⚙️</button>
-                        <button class="icon-button" id="leaderboardBtn">🏆</button>
-                        <button class="icon-button" id="achievementsBtn">🎖️</button>
-                        <button class="icon-button" id="aboutBtn">ℹ️</button>
+                        <button class="icon-button" id="settingsBtn" aria-label="Settings"><div class="icon-gear"></div></button>
+                        <button class="icon-button" id="leaderboardBtn" aria-label="Leaderboard"><div class="icon-trophy"></div></button>
+                        <button class="icon-button" id="achievementsBtn" aria-label="Achievements"><div class="icon-medal"></div></button>
+                        <button class="icon-button" id="aboutBtn" aria-label="About"><div class="icon-info"></div></button>
                     </div>
                 </div>
             </div>
@@ -233,7 +234,7 @@
             <div class="settings-panel" id="settingsPanel">
                 <div class="panel-header">
                     <h2>⚙️ SETTINGS</h2>
-                    <button class="close-btn" id="settingsCloseBtn">✕</button>
+                    <button class="close-btn" id="settingsCloseBtn" aria-label="Close Settings">✕</button>
                 </div>
 
                 <div class="settings-content">
@@ -266,15 +267,15 @@
                         <h3 class="group-title">TOGGLES</h3>
                         <div class="setting-item">
                             <span class="setting-label">Sound Effects</span>
-                            <div class="toggle-btn enabled" id="sfxToggle"></div>
+                            <button class="toggle-btn enabled" id="sfxToggle" aria-label="Toggle Sound Effects"></button>
                         </div>
                         <div class="setting-item">
                             <span class="setting-label">Music</span>
-                            <div class="toggle-btn enabled" id="musicToggle"></div>
+                            <button class="toggle-btn enabled" id="musicToggle" aria-label="Toggle Music"></button>
                         </div>
                         <div class="setting-item">
                             <span class="setting-label">Particle Effects</span>
-                            <div class="toggle-btn enabled" id="particlesToggle"></div>
+                            <button class="toggle-btn enabled" id="particlesToggle" aria-label="Toggle Particle Effects"></button>
                         </div>
                     </div>
                 </div>
@@ -286,7 +287,7 @@
             <div class="leaderboard-panel" id="leaderboardPanel">
                 <div class="panel-header">
                     <h2>🏆 TOP SCORES</h2>
-                    <button class="close-btn" id="leaderboardCloseBtn">✕</button>
+                    <button class="close-btn" id="leaderboardCloseBtn" aria-label="Close Leaderboard">✕</button>
                 </div>
                 <div class="leaderboard-content">
                     <div id="leaderboardEntries"></div>
@@ -299,7 +300,7 @@
             <div class="achievements-panel" id="achievementsPanel">
                 <div class="panel-header">
                     <h2>🎖️ ACHIEVEMENTS</h2>
-                    <button class="close-btn" id="achievementsCloseBtn">✕</button>
+                    <button class="close-btn" id="achievementsCloseBtn" aria-label="Close Achievements">✕</button>
                 </div>
                 <div class="achievements-content">
                     <div id="achievementsEntries"></div>
@@ -312,45 +313,43 @@
             <div class="about-panel" id="aboutPanel">
                 <div class="panel-header">
                     <h2>ℹ️ ABOUT</h2>
-                    <button class="close-btn" id="aboutCloseBtn">✕</button>
+                    <button class="close-btn" id="aboutCloseBtn" aria-label="Close About">✕</button>
                 </div>
                 <div class="about-content">
                     <div class="about-section">
-                        <h3>AERO DASH: SKY HIGH</h3>
-                        <p>A high-octane aerial navigation game with advanced progression, unique crafts, and dynamic challenges!</p>
+                        <h3>NEON GHOST: PHASE RUNNER</h3>
+                        <p>A high-octane phase-shifting aerial runner with advanced progression, unique ships, and dimensional challenges!</p>
                     </div>
 
                     <div class="about-section">
                         <h3>HOW TO PLAY</h3>
                         <ul>
                             <li>✓ Tap or click to engage thrusters and ascend</li>
-                            <li>✓ Navigate through the energy pillars</li>
-                            <li>✓ Pass through gates to earn energy points</li>
-                            <li>✓ Collect power-ups for special abilities</li>
+                            <li>✓ Navigate through the security gates</li>
+                            <li>✓ Shift through obstacles using PHASE DASH (Shift / Right Click)</li>
+                            <li>✓ Collect energy cells to power your upgrades</li>
                         </ul>
                     </div>
 
                     <div class="about-section">
                         <h3>FEATURES</h3>
                         <ul>
-                            <li>✓ 4 Unique Aero Crafts</li>
+                            <li>✓ 8 Unique Custom Ships</li>
+                            <li>✓ Phase-Shifting Mechanics</li>
                             <li>✓ Global Leaderboard & Rankings</li>
                             <li>✓ Achievement Progression</li>
-                            <li>✓ Combo system with multipliers</li>
-                            <li>✓ Custom audio controls</li>
-                            <li>✓ High-fidelity juice (Screen shake, Hit-stop)</li>
-                            <li>✓ Procedural Neon Graphics</li>
-                            <li>✓ Particle trails & Score floaters</li>
+                            <li>✓ Procedural Neon Cyber-Cityscapes</li>
+                            <li>✓ High-fidelity "Juice" & Visual Effects</li>
                         </ul>
                     </div>
 
                     <div class="about-section">
                         <h3>POWER-UPS</h3>
                         <ul>
-                            <li>🛡 Shield - Protects from one collision</li>
-                            <li>⏱ Slow Motion - Brief time dilation</li>
-                            <li>🧲 Magnet - Attracts energy coins</li>
-                            <li>💰 Coins - Accumulate for ranking</li>
+                            <li>🛡 Kinetic Shield - Absorbs one impact</li>
+                            <li>⏱ Chrono-Stasis - Dilates time for better control</li>
+                            <li>🧲 Flux Magnet - Attracts distant energy cells</li>
+                            <li>⚡ Phase Core - Recharges Dash instantly</li>
                         </ul>
                     </div>
                 </div>
@@ -364,7 +363,7 @@
 
                 <!-- Rank Display -->
                 <div class="rank-display" id="rankDisplay">
-                    <div class="rank-icon" id="rankIcon">🏆</div>
+                    <div class="rank-icon" id="rankIcon"><div class="icon-trophy-large"></div></div>
                     <div class="rank-name" id="rankName">Rookie</div>
                     <div class="rank-progress-bar">
                         <div class="rank-progress-fill" id="rankProgress" style="width: 0%"></div>
@@ -387,10 +386,10 @@
                 </div>
                 <div class="game-over-buttons">
                     <button class="button button-primary" id="reviveBtn" style="display: none; background: linear-gradient(135deg, #ffd700, #ff8c00); color: #000;">
-                        <span>📺 REVIVE (AD)</span>
+                        <div class="icon-play"></div> <span>REVIVE (AD)</span>
                     </button>
                     <button class="button button-primary" id="doubleRewardBtn" style="display: none; background: linear-gradient(135deg, #ff00ff, #7000ff);">
-                        <span>💎 DOUBLE COINS (AD)</span>
+                        <div class="icon-gem-white"></div> <span>DOUBLE COINS (AD)</span>
                     </button>
                     <button class="button button-primary" id="retryBtn">TRY AGAIN</button>
                     <button class="button button-secondary" id="menuBtn">MAIN MENU</button>

@@ -1,4 +1,4 @@
-/* Aero Dash: Sky High - Main Stylesheet */
+/* Neon Ghost: Phase Runner - Main Stylesheet */
 
 * {
     margin: 0;
@@ -9,8 +9,9 @@
 :root {
     --primary-neon: #00f2fe;
     --secondary-neon: #4facfe;
-    --bg-dark: #0f0f1e;
-    --panel-bg: rgba(25, 25, 45, 0.95);
+    --accent-neon: #ff00ff;
+    --bg-dark: #05050a;
+    --panel-bg: rgba(10, 10, 25, 0.95);
     --text-glow: 0 0 10px rgba(0, 242, 254, 0.5);
 }
 
@@ -120,9 +121,32 @@ body {
 }
 
 .craft-logo {
-    font-size: 100px;
+    width: 100px;
+    height: 100px;
+    margin: 0 auto 20px;
     filter: drop-shadow(0 0 20px var(--primary-neon));
     animation: pulseGlow 2s ease-in-out infinite;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.logo-shape {
+    width: 0;
+    height: 0;
+    border-left: 40px solid transparent;
+    border-right: 40px solid transparent;
+    border-bottom: 80px solid var(--primary-neon);
+    position: relative;
+}
+
+.logo-shape::after {
+    content: '';
+    position: absolute;
+    top: 30px; left: -20px;
+    width: 40px; height: 10px;
+    background: #fff;
+    box-shadow: 0 0 20px #fff;
 }
 
 @keyframes pulseGlow {
@@ -131,13 +155,23 @@ body {
 }
 
 .animation-content h2 {
-    font-size: 56px;
+    font-size: 64px;
     font-weight: 900;
-    letter-spacing: 6px;
-    background: linear-gradient(to bottom, #fff, var(--primary-neon));
+    letter-spacing: 12px;
+    background: linear-gradient(to bottom, #fff 40%, var(--primary-neon));
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
-    text-shadow: var(--text-glow);
+    text-shadow: 0 0 20px rgba(0, 242, 254, 0.4);
+    margin-bottom: 5px;
+}
+
+.animation-content p {
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: 12px;
+    color: var(--accent-neon);
+    text-transform: uppercase;
+    text-shadow: 0 0 10px var(--accent-neon);
 }
 
 /* Top Navigation Bar */
@@ -160,15 +194,22 @@ body {
 }
 
 .player-avatar {
-    width: 40px; height: 40px;
-    background: rgba(255,255,255,0.1);
-    border: 1px solid var(--primary-neon);
-    border-radius: 50%;
+    width: 44px; height: 44px;
+    background: rgba(0,0,0,0.5);
+    border: 2px solid var(--primary-neon);
+    border-radius: 12px;
     display: flex;
     justify-content: center;
     align-items: center;
-    font-size: 20px;
-    box-shadow: 0 0 10px rgba(0, 242, 254, 0.2);
+    box-shadow: 0 0 15px rgba(0, 242, 254, 0.3);
+    position: relative;
+    overflow: hidden;
+}
+
+.avatar-icon {
+    width: 20px; height: 20px;
+    background: var(--primary-neon);
+    clip-path: polygon(50% 0%, 100% 100%, 50% 80%, 0% 100%);
 }
 
 .player-level-container {
@@ -203,15 +244,30 @@ body {
 }
 
 .currency-item {
-    background: rgba(0,0,0,0.5);
-    padding: 4px 4px 4px 10px;
-    border-radius: 20px;
+    background: rgba(0,0,0,0.6);
+    padding: 6px 6px 6px 12px;
+    border-radius: 8px;
     display: flex;
     align-items: center;
-    gap: 6px;
-    border: 1px solid rgba(255,255,255,0.1);
-    font-size: 13px;
-    font-weight: 700;
+    gap: 8px;
+    border: 1px solid rgba(255,255,255,0.05);
+    font-size: 14px;
+    font-weight: 900;
+    box-shadow: inset 0 0 10px rgba(0,0,0,0.5);
+}
+
+.currency-icon-cell {
+    width: 14px; height: 14px;
+    background: #ffd700;
+    border-radius: 50%;
+    box-shadow: 0 0 10px #ffd700;
+}
+
+.currency-icon-gem {
+    width: 14px; height: 14px;
+    background: var(--accent-neon);
+    clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+    box-shadow: 0 0 10px var(--accent-neon);
 }
 
 .add-btn {
@@ -430,6 +486,40 @@ body {
     box-shadow: 0 0 35px rgba(0, 242, 254, 0.6);
 }
 
+.toggle-btn {
+    width: 50px;
+    height: 26px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 13px;
+    position: relative;
+    cursor: pointer;
+    transition: 0.3s;
+    border: 1px solid rgba(255,255,255,0.2);
+    padding: 0;
+}
+
+.toggle-btn.enabled {
+    background: var(--primary-neon);
+    box-shadow: 0 0 10px var(--primary-neon);
+    border-color: #fff;
+}
+
+.toggle-btn::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 20px;
+    height: 20px;
+    background: #fff;
+    border-radius: 50%;
+    transition: 0.3s;
+}
+
+.toggle-btn.enabled::after {
+    left: 26px;
+}
+
 /* Lobby Tabs */
 .lobby-tabs {
     position: absolute;
@@ -635,16 +725,42 @@ body {
 }
 
 .icon-button {
-    width: 50px; height: 50px;
-    background: rgba(255,255,255,0.05);
-    border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 12px;
-    font-size: 20px;
+    width: 56px; height: 56px;
+    background: rgba(0,0,0,0.4);
+    border: 1px solid rgba(0, 242, 254, 0.2);
+    border-radius: 14px;
     cursor: pointer;
-    transition: 0.2s;
+    transition: 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    display: flex;
+    justify-content: center;
+    align-items: center;
 }
 
-.icon-button:hover { background: rgba(255,255,255,0.1); border-color: var(--primary-neon); }
+.icon-button:hover {
+    transform: translateY(-5px);
+    border-color: var(--primary-neon);
+    box-shadow: 0 5px 15px rgba(0, 242, 254, 0.3);
+}
+
+.icon-gear, .icon-trophy, .icon-medal, .icon-info {
+    width: 24px; height: 24px;
+    background: var(--primary-neon);
+    box-shadow: 0 0 10px var(--primary-neon);
+}
+
+.icon-gear { clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%); } /* Star as placeholder */
+.icon-trophy { clip-path: polygon(10% 10%, 90% 10%, 90% 40%, 50% 90%, 10% 40%); }
+.icon-medal { clip-path: circle(50% at 50% 50%); }
+.icon-info { clip-path: polygon(40% 10%, 60% 10%, 60% 30%, 40% 30%, 40% 40%, 60% 40%, 60% 90%, 40% 90%); }
+
+.icon-pause { width: 20px; height: 20px; background: var(--primary-neon); clip-path: polygon(10% 0%, 40% 0%, 40% 100%, 10% 100%, 60% 0%, 90% 0%, 90% 100%, 60% 100%); }
+.icon-bolt { width: 24px; height: 24px; background: var(--primary-neon); clip-path: polygon(40% 0%, 100% 0%, 60% 40%, 100% 40%, 20% 100%, 40% 60%, 0% 60%); }
+.arrow-left { width: 15px; height: 15px; background: var(--primary-neon); clip-path: polygon(100% 0%, 0% 50%, 100% 100%); }
+.arrow-right { width: 15px; height: 15px; background: var(--primary-neon); clip-path: polygon(0% 0%, 100% 50%, 0% 100%); }
+.icon-gift { width: 20px; height: 20px; background: #fff; clip-path: polygon(0% 30%, 100% 30%, 100% 100%, 0% 100%, 0% 30%, 20% 0%, 80% 0%, 100% 30%); }
+.icon-trophy-large { width: 60px; height: 60px; background: #ffd700; clip-path: polygon(10% 10%, 90% 10%, 90% 40%, 50% 90%, 10% 40%); margin: 0 auto; }
+.icon-play { width: 20px; height: 20px; background: #000; clip-path: polygon(20% 0%, 100% 50%, 20% 100%); }
+.icon-gem-white { width: 20px; height: 20px; background: #fff; clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%); }
 
 /* Shop Styles */
 .shop-sections { width: 100%; display: flex; flex-direction: column; gap: 25px; }

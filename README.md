@@ -1,26 +1,23 @@
-# Aero Dash: Sky High 🚀
+# Neon Ghost: Phase Runner 🚀
 
-A high-octane aerial navigation game built with HTML5 Canvas. Experience procedural neon environments, a deep progression system, and intense warp-speed gameplay!
+A high-fidelity, Cyberpunk-themed aerial runner built for high-performance web platforms.
 
-## Features
-- **8 Unique Aero Crafts:** Unlock and pilot Swift-X, Neon-Volt, Midas-1, Phantom-S, Solar-Flare, and more!
-- **Epic Boss Battles:** Survive against the Hyper-Guardian every 100 points to earn massive rewards.
-- **Dynamic Enemies:** Dodge Interceptor Drones patrolling the neon skies.
-- **Dynamic Zones:** Fly through Neon City, Dark Void, and Inferno—each with unique physics and speeds.
-- **Multiple Game Modes:** Test your skills in **Endless** mode or race against the clock in **Time Attack**.
-- **Warp Mode:** Reach score milestones to trigger high-speed warp sequences with 3x score multipliers.
-- **Ecosystem & Progression:** Earn XP, level up (1-50+), and collect Coins and Gems to purchase permanent upgrades.
-- **Persistent Upgrades:** Improve your Shield duration, Magnet range, Slow-Mo timing, and Luck Factor.
-- **Daily Quests:** Complete rotating daily missions for massive rewards.
-- **Near-Miss System:** High-risk, high-reward mechanic that grants bonus points for close calls with obstacles.
-- **CrazyGames SDK v2:** Full integration with rewarded ads for revives and currency boosts, plus mid-game ad support.
+## 🌟 Key Features
+- **Phase-Shift Mechanics:** Dash through obstacles with the built-in Viper-X phasing engine.
+- **8 Unique Viper Crafts:** Unlock and pilot Swift-X, Neon-Volt, Midas-1, Phantom-S, Solar-Flare, and more!
+- **Epic Boss Encounters:** Survive against the Hyper-Guardian and its projectile reflection mechanics.
+- **Dimensional Rifts:** Adapt to Gravity Flip, Mirror Mode, and Tiny Craft mutators.
+- **Progression System:** Level up, complete daily missions, and upgrade your ship's tech.
+- **Optimized for CrazyGames:** Seamless SDK integration for ads, mid-rolls, and performance scaling.
 
-## Controls
-- **Space / Click / Tap:** Engage thrusters to ascend.
-- **Escape:** Pause the game.
+## 🕹️ Controls
+- **Ascend:** Space / Click / Touch
+- **Phase Dash:** Shift / Right-Click / Double-Tap
+- **Pause:** Escape
 
-## Technologies
-- HTML5 Canvas & procedural rendering.
-- JavaScript (ES6+) with frame-rate independent physics.
-- CSS3 Variable-based neon styling and filters.
-- Web Audio API for immersive spatial sound.
+## 🛠️ Development
+Run a local server to test:
+```bash
+python3 -m http.server 8080
+```
+Access at `http://localhost:8080`.

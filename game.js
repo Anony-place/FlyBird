@@ -1,16 +1,17 @@
 /**
- * Aero Dash: Sky High - Ultimate Professional Edition
+ * Neon Ghost: Phase Runner - Professional Overhaul
  * Optimized for CrazyGames with high-fidelity juice and depth.
  */
 
-class AeroCraft {
+class ViperCraft {
     constructor(canvas, themeColor, id = 'swift') {
         this.canvas = canvas;
         this.ctx = canvas.getContext('2d');
         this.themeColor = themeColor || '#00f2ff';
         this.id = id;
         this.particles = [];
-        this.particlePool = []; // Optimization: Pool for particles
+        this.particlePool = [];
+        this.ghostSnapshots = []; // For Phase Dash trails
         this.reset();
     }
 
@@ -20,14 +21,14 @@ class AeroCraft {
         this.y = this.canvas.height / 2;
         this.velocity = 0;
         this.gravity = 0.6;
-        this.jump = -6; // Ultra-easy floaty control
+        this.jump = -6;
         this.radius = 15;
         this.rotation = 0;
 
-        // Return existing particles to pool
         while(this.particles.length > 0) {
             this.particlePool.push(this.particles.pop());
         }
+        this.ghostSnapshots = [];
 
         this.pulse = 0;
         this.shielded = false;
@@ -40,6 +41,17 @@ class AeroCraft {
     update(dt) {
         if (this.phaseCooldown > 0) this.phaseCooldown -= dt * 16.67;
         if (this.invulnerable > 0) this.invulnerable -= dt * 16.67;
+
+        // Phase Dash Snapshotting
+        if (this.phasing) {
+            this.ghostSnapshots.push({ x: this.x, y: this.y, r: this.rotation, life: 1.0 });
+            if (this.ghostSnapshots.length > 5) this.ghostSnapshots.shift();
+        } else {
+            if (this.ghostSnapshots.length > 0) {
+                this.ghostSnapshots.forEach(g => g.life -= 0.1 * dt);
+                this.ghostSnapshots = this.ghostSnapshots.filter(g => g.life > 0);
+            }
+        }
 
         // X-Position smoothing for speed lean
         this.x += (this.targetX - this.x) * 0.1 * dt;
@@ -58,7 +70,8 @@ class AeroCraft {
         // Trail particles
         let trailChance = this.phasing ? 0.9 : 0.4;
         if (this.particles.length > 60) trailChance *= 0.5; // Throttle if too many
-        if (Math.random() > (1 - trailChance)) {
+        const showParticles = window.game && window.game.state && window.game.state.settings.particles;
+        if (showParticles && Math.random() > (1 - trailChance)) {
             let trailId = 'basic';
             if (window.game && window.game.state) trailId = window.game.state.selectedTrail;
 
@@ -97,29 +110,31 @@ class AeroCraft {
 
     draw() {
         const ctx = this.ctx;
-        ctx.save(); // Wrapper save for leaked translations/filters
+        ctx.save();
 
         if (this.phasing) {
             ctx.filter = 'hue-rotate(90deg) contrast(1.5) brightness(1.2)';
-            if (Math.random() > 0.7) {
-                ctx.translate((Math.random()-0.5)*10, (Math.random()-0.5)*10);
+            if (Math.random() > 0.6) {
+                const shift = (Math.random() - 0.5) * 15;
+                ctx.translate(shift, (Math.random() - 0.5) * 5);
+                // Chromatic Aberration Simulation
+                ctx.shadowColor = '#ff00ff';
+                ctx.shadowBlur = 10;
+                ctx.shadowOffsetX = -shift;
             }
         }
 
-        // Shield / Invulnerable Effect
-        if (this.shielded || this.invulnerable > 0) {
+        // 1. Draw Snapshots (Phase Echoes)
+        for (let g of this.ghostSnapshots) {
             ctx.save();
-            ctx.translate(this.x, this.y);
-            ctx.strokeStyle = this.invulnerable > 0 ? '#00ffff' : '#fff';
-            ctx.lineWidth = this.invulnerable > 0 ? 2 : 3;
-            if (this.invulnerable > 0) ctx.setLineDash([5, 5]);
-            ctx.beginPath();
-            ctx.arc(0, 0, 25 + Math.sin(this.pulse * 2) * 3, 0, Math.PI * 2);
-            ctx.stroke();
+            ctx.globalAlpha = g.life * 0.3;
+            ctx.translate(g.x, g.y);
+            ctx.rotate(g.r);
+            this.drawViperBody(ctx, true);
             ctx.restore();
         }
 
-        // Particles
+        // 2. Draw Particles first (Background depth)
         for (let i = 0; i < this.particles.length; i++) {
             let p = this.particles[i];
             ctx.globalAlpha = p.life * 0.7;
@@ -130,116 +145,161 @@ class AeroCraft {
         }
         ctx.globalAlpha = 1.0;
 
+        // 3. Draw Shield (Under the ship)
+        if (this.shielded || this.invulnerable > 0) {
+            ctx.save();
+            ctx.translate(this.x, this.y);
+            ctx.strokeStyle = this.invulnerable > 0 ? '#00ffff' : '#fff';
+            ctx.lineWidth = this.invulnerable > 0 ? 2 : 3;
+            if (this.invulnerable > 0) ctx.setLineDash([5, 5]);
+            ctx.shadowBlur = 20;
+            ctx.shadowColor = this.invulnerable > 0 ? '#00ffff' : '#fff';
+            ctx.beginPath();
+            ctx.arc(0, 0, 28 + Math.sin(this.pulse * 3) * 4, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.restore();
+        }
+
+        // 4. Draw Ship Model
         ctx.save();
         ctx.translate(this.x, this.y);
         ctx.rotate(this.rotation);
 
-        // Advanced Glow
-        ctx.shadowBlur = 20 + Math.sin(this.pulse) * 8;
+        // Ship Glow
+        ctx.shadowBlur = 25;
         ctx.shadowColor = this.themeColor;
 
-        // --- POLISHED VIPER-X MODEL ---
+        this.drawViperBody(ctx, false);
 
-        // Thruster Flame
-        const thrusterSize = 5 + Math.abs(this.velocity);
-        ctx.fillStyle = this.phasing ? '#00ffff' : '#ffcc00';
+        ctx.restore();
+        ctx.restore();
+    }
+
+    drawViperBody(ctx, isGhost) {
+        // --- THE NEON-GHOST VIPER MODEL ---
+        if (!isGhost) {
+            // Thruster - Multi-layered flame
+            const thrusterSize = 8 + Math.abs(this.velocity) * 1.5;
+            const tColor = this.phasing ? '#00ffff' : '#ff00ff';
+
+            // Outer flame
+            ctx.fillStyle = tColor;
+            ctx.globalAlpha = 0.4;
+            ctx.beginPath();
+            ctx.moveTo(-15, 0);
+            ctx.lineTo(-15 - thrusterSize * 2.5, -6);
+            ctx.lineTo(-15 - thrusterSize * 3.5, 0);
+            ctx.lineTo(-15 - thrusterSize * 2.5, 6);
+            ctx.fill();
+
+            // Inner core flame
+            ctx.fillStyle = '#fff';
+            ctx.globalAlpha = 0.8;
+            ctx.beginPath();
+            ctx.moveTo(-12, 0);
+            ctx.lineTo(-12 - thrusterSize * 1.5, -3);
+            ctx.lineTo(-12 - thrusterSize * 2.2, 0);
+            ctx.lineTo(-12 - thrusterSize * 1.5, 3);
+            ctx.fill();
+            ctx.globalAlpha = 1.0;
+        }
+
+        // Ship Body - Sleek Poly-Chrome look
+        let bodyGrad = ctx.createLinearGradient(-20, -15, 20, 15);
+        bodyGrad.addColorStop(0, isGhost ? '#888' : '#050505');
+        bodyGrad.addColorStop(0.5, isGhost ? '#aaa' : '#222');
+        bodyGrad.addColorStop(1, isGhost ? '#888' : '#050505');
+        ctx.fillStyle = bodyGrad;
+        ctx.strokeStyle = isGhost ? '#00ffff' : this.themeColor;
+        ctx.lineWidth = 2;
+
         ctx.beginPath();
-        ctx.moveTo(-10, 0);
-        ctx.lineTo(-10 - thrusterSize * 2, -2);
-        ctx.lineTo(-10 - thrusterSize * 2.5, 0);
-        ctx.lineTo(-10 - thrusterSize * 2, 2);
-        ctx.fill();
-
-        // Engine Nozzles
-        ctx.fillStyle = '#333';
-        ctx.fillRect(-12, -4, 4, 8);
-
-        // Main Wing Structure
-        let grad = ctx.createLinearGradient(-15, 0, 20, 0);
-        grad.addColorStop(0, '#111');
-        grad.addColorStop(0.5, this.themeColor);
-        grad.addColorStop(1, '#fff');
-        ctx.fillStyle = grad;
-
-        // Sleek fuselage
-        ctx.beginPath();
-        const charId = this.id;
-        if (charId === 'glitch') {
-            // Blocky glitchy shape
-            ctx.rect(-10, -10, 20, 20);
-            ctx.rect(10, -5, 10, 10);
-        } else if (charId === 'phantom') {
-            // Pointy ghost shape
-            ctx.moveTo(25, 0); ctx.lineTo(-10, -15); ctx.lineTo(-5, 0); ctx.lineTo(-10, 15);
+        if (this.id === 'glitch') {
+            ctx.rect(-15, -15, 30, 30);
+            ctx.rect(15, -5, 12, 10);
+        } else if (this.id === 'phantom') {
+            ctx.moveTo(30, 0); ctx.lineTo(-15, -20); ctx.lineTo(-5, 0); ctx.lineTo(-15, 20);
         } else {
-            ctx.moveTo(22, 0);       // Nose
-            ctx.lineTo(-8, -14);     // Top wing tip
-            ctx.lineTo(-12, -10);    // Back top
-            ctx.lineTo(-5, 0);       // Center back
-            ctx.lineTo(-12, 10);     // Back bottom
-            ctx.lineTo(-8, 14);      // Bottom wing tip
+            // Default Viper Shape
+            ctx.moveTo(28, 0);        // Nose
+            ctx.lineTo(-5, -18);      // Top Wing
+            ctx.lineTo(-18, -12);     // Back Top
+            ctx.lineTo(-10, 0);       // Back Center
+            ctx.lineTo(-18, 12);      // Back Bottom
+            ctx.lineTo(-5, 18);       // Bottom Wing
         }
         ctx.closePath();
         ctx.fill();
-
-        // Mechanical Hull Plating Detail
-        ctx.strokeStyle = 'rgba(255,255,255,0.3)';
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(0, -8); ctx.lineTo(10, 0); ctx.lineTo(0, 8);
         ctx.stroke();
 
-        // Cockpit (Glass)
-        let cockpitGrad = ctx.createRadialGradient(8, -2, 1, 8, -2, 6);
-        cockpitGrad.addColorStop(0, '#00ffff');
-        cockpitGrad.addColorStop(1, '#002233');
-        ctx.fillStyle = cockpitGrad;
-        ctx.beginPath();
-        ctx.ellipse(8, 0, 8, 4, 0, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.strokeStyle = 'rgba(255,255,255,0.5)';
-        ctx.stroke();
+        if (!isGhost) {
+            // Mechanical Detail Lines
+            ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(0, -10); ctx.lineTo(15, 0); ctx.lineTo(0, 10);
+            ctx.stroke();
 
-        // Eye glow / Scanner
-        ctx.fillStyle = this.phasing ? '#00ffff' : '#ff0000';
-        ctx.beginPath();
-        ctx.arc(15, -1, 1.5, 0, Math.PI * 2);
-        ctx.fill();
+            // Cockpit - Glass effect
+            let glassGrad = ctx.createRadialGradient(10, -3, 2, 10, -3, 10);
+            glassGrad.addColorStop(0, '#fff');
+            glassGrad.addColorStop(0.3, this.themeColor);
+            glassGrad.addColorStop(1, '#000');
+            ctx.fillStyle = glassGrad;
+            ctx.beginPath();
+            ctx.ellipse(10, 0, 10, 5, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#fff';
+            ctx.globalAlpha = 0.5;
+            ctx.stroke();
+            ctx.globalAlpha = 1.0;
 
-        ctx.restore(); // Restore craft specific translate/rotate
-        ctx.restore(); // Restore wrapper save
-        ctx.shadowBlur = 0;
-        ctx.filter = 'none';
+            // Scanner Eye
+            const eyeColor = this.phasing ? '#00ffff' : '#ff0044';
+            ctx.fillStyle = eyeColor;
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = eyeColor;
+            ctx.beginPath();
+            ctx.arc(20, -1, 2, 0, Math.PI * 2);
+            ctx.fill();
+        }
     }
 
     phase() {
         if (this.phaseCooldown > 0) return false;
         this.phasing = true;
         this.phaseCooldown = 4000; // 4s cooldown
+        this.targetX += 60; // Forward nudge
 
         setTimeout(() => {
             this.phasing = false;
-            this.invulnerable = 500; // 0.5s grace period
-        }, 600); // 0.6s phase duration
+            this.targetX -= 60; // Return to position
+            this.invulnerable = 800; // 0.8s grace period
+            // Visual feedback for exit
+            if (window.game) {
+                window.game.shake = 5;
+                window.game.spawnFloater(this.x, this.y, "PHASE RE-ENTRY", "#00ffff");
+            }
+        }, 450); // Snappier 0.45s phase duration
         return true;
     }
 }
 
-class Pillar {
+class CyberGate {
     constructor(canvas, x, themeColor, gap = 170) {
         this.canvas = canvas;
         this.ctx = canvas.getContext('2d');
         this.x = x;
-        this.width = 65;
+        this.width = 70;
         this.gap = gap;
-        let availableSpace = Math.max(100, canvas.height - this.gap - 120);
-        this.top = Math.random() * availableSpace + 60;
+        let availableSpace = Math.max(100, canvas.height - this.gap - 140);
+        this.top = Math.random() * availableSpace + 70;
         this.bottom = canvas.height - (this.top + this.gap);
         this.passed = false;
         this.color = themeColor;
         this.anim = 0;
-        // 20% chance to be a Laser Gate
-        this.isLaser = Math.random() < 0.2;
+        // 30% chance to be a High-Security Laser Gate
+        this.isLaser = Math.random() < 0.3;
     }
 
     update(dt, speed) {
@@ -256,30 +316,55 @@ class Pillar {
             return;
         }
 
+        ctx.save();
+
+        // Pillar Body
         let grad = ctx.createLinearGradient(this.x, 0, this.x + this.width, 0);
         grad.addColorStop(0, '#0a0a1a');
-        grad.addColorStop(0.5, this.color);
+        grad.addColorStop(0.5, '#1a1a2a');
         grad.addColorStop(1, '#0a0a1a');
-
-        ctx.save();
-        ctx.shadowBlur = 12;
-        ctx.shadowColor = this.color;
         ctx.fillStyle = grad;
+        ctx.strokeStyle = this.color;
+        ctx.lineWidth = 2;
 
-        this.roundRect(ctx, this.x, 0, this.width, this.top, 8);
+        // Top Pillar
+        this.roundRect(ctx, this.x, -10, this.width, this.top + 10, 5);
         ctx.fill();
-        this.roundRect(ctx, this.x, canvas.height - this.bottom, this.width, this.bottom, 8);
-        ctx.fill();
+        ctx.stroke();
 
+        // Bottom Pillar
+        this.roundRect(ctx, this.x, canvas.height - this.bottom, this.width, this.bottom + 10, 5);
+        ctx.fill();
+        ctx.stroke();
+
+        // Mechanical Heads (The parts facing the gap)
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = this.color;
+        ctx.fillStyle = this.color;
+
+        // Top Head
+        ctx.fillRect(this.x - 5, this.top - 15, this.width + 10, 15);
+        // Bottom Head
+        ctx.fillRect(this.x - 5, canvas.height - this.bottom, this.width + 10, 15);
+
+        // Pulsing Energy Core in Heads
+        const pulse = Math.abs(Math.sin(this.anim)) * 0.8;
+        ctx.fillStyle = '#fff';
+        ctx.globalAlpha = pulse;
+        ctx.fillRect(this.x + 10, this.top - 10, this.width - 20, 5);
+        ctx.fillRect(this.x + 10, canvas.height - this.bottom + 5, this.width - 20, 5);
+        ctx.globalAlpha = 1.0;
+
+        // Decorative Stripes
         ctx.strokeStyle = '#fff';
-        ctx.lineWidth = 1.5;
-        ctx.globalAlpha = 0.2;
-        let stripeY = (this.anim * 25) % 50;
-        for(let y = stripeY; y < this.top; y += 50) {
-            ctx.beginPath(); ctx.moveTo(this.x, y); ctx.lineTo(this.x + this.width, y); ctx.stroke();
-        }
-        for(let y = canvas.height - this.bottom + stripeY; y < canvas.height; y += 50) {
-            ctx.beginPath(); ctx.moveTo(this.x, y); ctx.lineTo(this.x + this.width, y); ctx.stroke();
+        ctx.lineWidth = 1;
+        ctx.globalAlpha = 0.1;
+        for(let i=0; i<5; i++) {
+            let sy = (this.anim * 10 + i * 20) % this.top;
+            ctx.beginPath(); ctx.moveTo(this.x, sy); ctx.lineTo(this.x + this.width, sy); ctx.stroke();
+
+            let by = (canvas.height - this.bottom) + ((this.anim * 10 + i * 20) % this.bottom);
+            ctx.beginPath(); ctx.moveTo(this.x, by); ctx.lineTo(this.x + this.width, by); ctx.stroke();
         }
 
         ctx.restore();
@@ -287,25 +372,40 @@ class Pillar {
 
     drawLaserGate(ctx) {
         ctx.save();
-        // Posts
-        ctx.fillStyle = '#333';
-        ctx.fillRect(this.x, 0, this.width, this.top);
-        ctx.fillRect(this.x, this.canvas.height - this.bottom, this.width, this.bottom);
+        const canvas = this.canvas;
 
-        // Laser effect
-        const laserAlpha = 0.3 + Math.abs(Math.sin(this.anim * 2)) * 0.4;
-        ctx.globalAlpha = laserAlpha;
-        ctx.fillStyle = '#ff0000';
+        // High-tech posts
+        ctx.fillStyle = '#111';
+        ctx.strokeStyle = '#ff0044';
+        ctx.lineWidth = 3;
+
+        this.roundRect(ctx, this.x + 10, 0, this.width - 20, this.top, 5);
+        ctx.fill(); ctx.stroke();
+        this.roundRect(ctx, this.x + 10, canvas.height - this.bottom, this.width - 20, this.bottom, 5);
+        ctx.fill(); ctx.stroke();
+
+        // Laser emitters
+        ctx.fillStyle = '#ff0044';
         ctx.shadowBlur = 20;
-        ctx.shadowColor = '#ff0000';
+        ctx.shadowColor = '#ff0044';
+        ctx.fillRect(this.x, this.top - 10, this.width, 10);
+        ctx.fillRect(this.x, canvas.height - this.bottom, this.width, 10);
 
-        // Horizontal laser lines
-        ctx.fillRect(this.x - 5, this.top - 5, this.width + 10, 5);
-        ctx.fillRect(this.x - 5, this.canvas.height - this.bottom, this.width + 10, 5);
-
-        // Vertical connecting beams
-        ctx.fillRect(this.x + 10, this.top, 2, this.gap);
-        ctx.fillRect(this.x + this.width - 12, this.top, 2, this.gap);
+        // Dynamic Lasers
+        const laserCount = 3;
+        const time = Date.now() * 0.01;
+        for (let i = 0; i < laserCount; i++) {
+            const offset = (Math.sin(time + i) * 5);
+            const alpha = 0.2 + Math.random() * 0.5;
+            ctx.globalAlpha = alpha;
+            ctx.strokeStyle = '#ff0044';
+            ctx.lineWidth = 2;
+            const lx = this.x + 10 + (i * (this.width - 20) / (laserCount - 1));
+            ctx.beginPath();
+            ctx.moveTo(lx, this.top);
+            ctx.lineTo(lx, canvas.height - this.bottom);
+            ctx.stroke();
+        }
 
         ctx.restore();
     }
@@ -357,15 +457,27 @@ class Coin {
         const ctx = this.ctx;
         ctx.save();
         ctx.translate(this.x, this.y);
-        ctx.shadowBlur = 10;
+        ctx.shadowBlur = 15;
         ctx.shadowColor = '#ffd700';
+
+        // Rotating Energy Cell (Diamond shape)
+        ctx.rotate(this.pulse);
         ctx.fillStyle = '#ffd700';
-        ctx.scale(Math.sin(this.pulse), 1);
         ctx.beginPath();
-        ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
+        ctx.moveTo(0, -this.radius);
+        ctx.lineTo(this.radius * 0.8, 0);
+        ctx.lineTo(0, this.radius);
+        ctx.lineTo(-this.radius * 0.8, 0);
+        ctx.closePath();
         ctx.fill();
+
+        // Core highlight
+        ctx.fillStyle = '#fff';
+        ctx.beginPath();
+        ctx.arc(0, 0, this.radius * 0.3, 0, Math.PI * 2);
+        ctx.fill();
+
         ctx.restore();
-        ctx.filter = 'none';
     }
 
 }
@@ -390,24 +502,53 @@ class PowerUp {
     draw() {
         const ctx = this.ctx;
         let color = '#fff';
-        let icon = '?';
-        if (this.type === 'shield') { color = '#00ff00'; icon = '🛡️'; }
-        if (this.type === 'magnet') { color = '#ff00ff'; icon = '🧲'; }
-        if (this.type === 'slowmo') { color = '#ffff00'; icon = '⏱️'; }
+        if (this.type === 'shield') { color = '#00ff00'; }
+        if (this.type === 'magnet') { color = '#ff00ff'; }
+        if (this.type === 'slowmo') { color = '#ffff00'; }
 
         ctx.save();
         ctx.translate(this.x, this.y);
-        ctx.shadowBlur = 15;
+        ctx.shadowBlur = 20;
         ctx.shadowColor = color;
-        ctx.fillStyle = color;
+
+        // Outer ring
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
         ctx.beginPath();
-        ctx.arc(0, 0, this.radius + Math.sin(this.pulse) * 3, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = '#000';
-        ctx.font = '12px Arial';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(icon, 0, 0);
+        ctx.arc(0, 0, this.radius + Math.sin(this.pulse * 2) * 2, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Inner shape
+        ctx.fillStyle = color;
+        ctx.rotate(-this.pulse);
+        if (this.type === 'shield') {
+            // Shield Icon
+            ctx.beginPath();
+            ctx.moveTo(0, -8); ctx.lineTo(7, -3); ctx.lineTo(7, 3); ctx.lineTo(0, 8); ctx.lineTo(-7, 3); ctx.lineTo(-7, -3);
+            ctx.closePath();
+            ctx.fill();
+        } else if (this.type === 'magnet') {
+            // Magnet Icon (U-shape)
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.arc(0, 0, 6, Math.PI, 0);
+            ctx.lineTo(6, 6);
+            ctx.moveTo(-6, 0);
+            ctx.lineTo(-6, 6);
+            ctx.stroke();
+        } else if (this.type === 'slowmo') {
+            // Clock Icon
+            ctx.beginPath();
+            ctx.arc(0, 0, 7, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(0, 0); ctx.lineTo(0, -5);
+            ctx.moveTo(0, 0); ctx.lineTo(4, 0);
+            ctx.stroke();
+        }
+
         ctx.restore();
     }
 }
@@ -426,23 +567,46 @@ class BossHyperGuardian {
         this.projectiles = [];
         this.shootTimer = 0;
         this.targetY = canvas.height / 2;
+        this.state = 'HOVER'; // HOVER, CHARGE
+        this.stateTimer = 3000;
     }
-    update(dt, playerY) {
+    update(dt, playerY, playerX) {
         // Entry logic
-        if (this.x > this.canvas.width - 250) {
+        if (this.x > this.canvas.width - 250 && this.state !== 'CHARGE') {
             this.x -= 5 * dt; // Faster entry
         }
 
-        // Hover logic
-        this.targetY = playerY;
-        this.y += (this.targetY - this.y) * 0.05 * dt;
+        this.stateTimer -= dt * 16.67;
+        if (this.stateTimer <= 0) {
+            if (this.state === 'HOVER') {
+                this.state = 'CHARGE';
+                this.stateTimer = 1500;
+                this.chargeX = playerX - 300;
+                this.chargeY = playerY;
+                if (window.game) window.game.shake = 10;
+            } else {
+                this.state = 'HOVER';
+                this.stateTimer = 3000 + Math.random() * 2000;
+            }
+        }
+
+        if (this.state === 'CHARGE') {
+            this.x += (this.chargeX - this.x) * 0.08 * dt;
+            this.y += (this.chargeY - this.y) * 0.08 * dt;
+        } else {
+            // Hover logic
+            this.targetY = playerY;
+            this.y += (this.targetY - this.y) * 0.05 * dt;
+            const homeX = this.canvas.width - 250;
+            this.x += (homeX - this.x) * 0.05 * dt;
+        }
 
         this.timer -= dt * 16.67;
         this.shootTimer -= dt * 16.67;
 
-        if (this.shootTimer <= 0) {
+        if (this.shootTimer <= 0 && this.state === 'HOVER') {
             if (this.projectiles.length < 5) {
-                this.projectiles.push({ x: this.x, y: this.y, vx: -8, vy: (Math.random()-0.5)*4 });
+                this.projectiles.push({ x: this.x, y: this.y, vx: -8, vy: (Math.random() - 0.5) * 4 });
             }
             this.shootTimer = 1500;
         }
@@ -459,10 +623,13 @@ class BossHyperGuardian {
         ctx.save();
         ctx.translate(this.x, this.y);
 
-        // Boss Body
-        ctx.fillStyle = '#ff00ff';
-        ctx.shadowBlur = 30;
-        ctx.shadowColor = '#ff00ff';
+        // Boss Body Glitch Effect
+        const glitchX = (Math.random() - 0.5) * 10 * (1 - this.health / this.maxHealth);
+        ctx.translate(glitchX, 0);
+
+        ctx.fillStyle = this.health < 30 ? '#ff0044' : (this.state === 'CHARGE' ? '#ff8c00' : '#ff00ff');
+        ctx.shadowBlur = this.state === 'CHARGE' ? 50 : 30;
+        ctx.shadowColor = ctx.fillStyle;
 
         ctx.beginPath();
         ctx.moveTo(0, -60); ctx.lineTo(40, -40); ctx.lineTo(60, 0); ctx.lineTo(40, 40); ctx.lineTo(0, 60);
@@ -470,8 +637,14 @@ class BossHyperGuardian {
         ctx.closePath();
         ctx.fill();
 
-        // Eye
-        ctx.fillStyle = '#fff';
+        // Internal Shielding
+        ctx.strokeStyle = '#00ffff';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        // Eye (Redden as health drops)
+        const eyeColor = `rgb(255, ${Math.floor((this.health / this.maxHealth) * 255)}, ${Math.floor((this.health / this.maxHealth) * 255)})`;
+        ctx.fillStyle = eyeColor;
         ctx.beginPath();
         ctx.arc(-20, 0, 15 + Math.sin(Date.now()*0.01)*5, 0, Math.PI * 2);
         ctx.fill();
@@ -606,11 +779,16 @@ class Game {
                 totalCoins: 0,
                 maxCombo: 0
             },
+            settings: {
+                sfx: true,
+                music: true,
+                particles: true
+            },
             lastLogin: Date.now(),
             dailyQuests: this.generateQuests()
         };
 
-        const savedState = JSON.parse(localStorage.getItem('aeroDashState'));
+        const savedState = JSON.parse(localStorage.getItem('neonGhostState'));
         this.state = savedState ? { ...defaultState, ...savedState, upgrades: { ...defaultState.upgrades, ...(savedState.upgrades || {}) } } : defaultState;
 
         // Daily Quest Refresh logic
@@ -622,14 +800,14 @@ class Game {
         }
 
         this.characters = [
-            { id: 'swift', name: 'Swift-X', color: '#00f2fe', emoji: '🚀', price: 0 },
-            { id: 'neon', name: 'Neon-Volt', color: '#ff00ff', emoji: '⚡', price: 500 },
-            { id: 'emerald', name: 'Emerald-Jet', color: '#00ff88', emoji: '💎', price: 1200 },
-            { id: 'gold', name: 'Midas-1', color: '#ffcc00', emoji: '🏆', price: 3000 },
-            { id: 'phantom', name: 'Phantom-S', color: '#ffffff', emoji: '👻', price: 5000 },
-            { id: 'solar', name: 'Solar-Flare', color: '#ff8c00', emoji: '☀️', price: 8000 },
-            { id: 'void', name: 'Void-Star', color: '#9d00ff', emoji: '🌌', price: 15000 },
-            { id: 'glitch', name: 'Glitch-Zero', color: '#00ff41', emoji: '👾', price: 25000 }
+            { id: 'swift', name: 'Swift-X', color: '#00f2fe', price: 0 },
+            { id: 'neon', name: 'Neon-Volt', color: '#ff00ff', price: 500 },
+            { id: 'emerald', name: 'Emerald-Jet', color: '#00ff88', price: 1200 },
+            { id: 'gold', name: 'Midas-1', color: '#ffcc00', price: 3000 },
+            { id: 'phantom', name: 'Phantom-S', color: '#ffffff', price: 5000 },
+            { id: 'solar', name: 'Solar-Flare', color: '#ff8c00', price: 8000 },
+            { id: 'void', name: 'Void-Star', color: '#9d00ff', price: 15000 },
+            { id: 'glitch', name: 'Glitch-Zero', color: '#00ff41', price: 25000 }
         ];
 
         this.selectedChar = this.characters.find(c => c.id === this.state.selectedCraft) || this.characters[0];
@@ -648,7 +826,7 @@ class Game {
         ];
         this.currentZoneIdx = 0;
 
-        this.craft = new AeroCraft(this.canvas, this.selectedChar.color, this.selectedChar.id);
+        this.craft = new ViperCraft(this.canvas, this.selectedChar.color, this.selectedChar.id);
         this.pillars = [];
         this.coins = [];
         this.powerups = [];
@@ -677,9 +855,10 @@ class Game {
         this.shake = 0;
         this.hitStop = 0;
         this.flash = 0;
+        this.glitch = 0;
         this.activePowerups = {};
         this.runHistory = [];
-        this.bestRun = JSON.parse(localStorage.getItem('aeroDashBestRun')) || [];
+        this.bestRun = JSON.parse(localStorage.getItem('neonGhostBestRun')) || [];
 
         this.initUI();
         this.initInput();
@@ -702,7 +881,7 @@ class Game {
     }
 
     saveState() {
-        localStorage.setItem('aeroDashState', JSON.stringify(this.state));
+        localStorage.setItem('neonGhostState', JSON.stringify(this.state));
     }
 
     generateQuests() {
@@ -810,12 +989,22 @@ class Game {
         const xpPercent = (this.state.xp / xpThreshold) * 100;
         document.getElementById('xpBarFill').style.width = xpPercent + '%';
 
-        document.getElementById('lobbyCraftPreview').innerText = this.selectedChar.emoji;
-        document.getElementById('lobbyCraftPreview').style.filter = `drop-shadow(0 0 30px ${this.selectedChar.color})`;
+        const preview = document.getElementById('lobbyCraftPreview');
+        preview.innerText = "";
+        preview.style.background = this.selectedChar.color;
+        preview.style.width = "100px";
+        preview.style.height = "100px";
+        preview.style.clipPath = "polygon(50% 0%, 100% 100%, 50% 80%, 0% 100%)";
+        preview.style.filter = `drop-shadow(0 0 30px ${this.selectedChar.color})`;
 
         const ranks = ['ROOKIE', 'PILOT', 'ACE', 'LEGEND', 'SKY GOD'];
         const rankIdx = Math.min(ranks.length - 1, Math.floor(this.state.level / 5));
         document.getElementById('lobbyRankName').innerText = ranks[rankIdx];
+
+        // Update rank icon class if needed
+        const rankIcon = document.getElementById('lobbyRankIcon');
+        rankIcon.innerHTML = '<div class="icon-trophy" style="width:30px; height:30px; background:#ffd700;"></div>';
+
         this.saveState();
     }
 
@@ -829,7 +1018,7 @@ class Game {
             const item = document.createElement('div');
             item.className = `shop-item ${isSelected ? 'selected' : ''} ${!isUnlocked ? 'locked' : ''}`;
             item.innerHTML = `
-                <div class="item-visual">${char.emoji}</div>
+                <div class="item-visual-ship" style="background: ${char.color}; clip-path: polygon(50% 0%, 100% 100%, 50% 80%, 0% 100%); width: 40px; height: 40px; filter: drop-shadow(0 0 5px ${char.color});"></div>
                 <div class="item-name">${char.name}</div>
                 <div class="item-price">${isUnlocked ? (isSelected ? 'EQUIPPED' : 'OWNED') : '💰 ' + char.price}</div>
             `;
@@ -1049,6 +1238,49 @@ class Game {
         setupModal('aboutBtn', 'aboutOverlay', 'aboutCloseBtn');
 
         // Settings logic
+        const sfxToggle = document.getElementById('sfxToggle');
+        const musicToggle = document.getElementById('musicToggle');
+        const particlesToggle = document.getElementById('particlesToggle');
+
+        const updateToggleUI = (btn, enabled) => {
+            if (enabled) {
+                btn.classList.add('enabled');
+                btn.setAttribute('aria-pressed', 'true');
+            } else {
+                btn.classList.remove('enabled');
+                btn.setAttribute('aria-pressed', 'false');
+            }
+        };
+
+        if (sfxToggle) {
+            updateToggleUI(sfxToggle, this.state.settings.sfx);
+            sfxToggle.onclick = () => {
+                this.state.settings.sfx = !this.state.settings.sfx;
+                updateToggleUI(sfxToggle, this.state.settings.sfx);
+                if (window.audioManager) window.audioManager.muteSFX = !this.state.settings.sfx;
+                this.saveState();
+            };
+        }
+
+        if (musicToggle) {
+            updateToggleUI(musicToggle, this.state.settings.music);
+            musicToggle.onclick = () => {
+                this.state.settings.music = !this.state.settings.music;
+                updateToggleUI(musicToggle, this.state.settings.music);
+                if (window.audioManager) window.audioManager.muteMusic = !this.state.settings.music;
+                this.saveState();
+            };
+        }
+
+        if (particlesToggle) {
+            updateToggleUI(particlesToggle, this.state.settings.particles);
+            particlesToggle.onclick = () => {
+                this.state.settings.particles = !this.state.settings.particles;
+                updateToggleUI(particlesToggle, this.state.settings.particles);
+                this.saveState();
+            };
+        }
+
         const volSlider = document.getElementById('masterVolume');
         if (volSlider) {
             volSlider.oninput = (e) => {
@@ -1238,7 +1470,7 @@ class Game {
             }
             this.state.highScore = this.score;
             this.bestRun = [...this.runHistory];
-            localStorage.setItem('aeroDashBestRun', JSON.stringify(this.bestRun));
+            localStorage.setItem('neonGhostBestRun', JSON.stringify(this.bestRun));
         }
 
         // Level Up Logic (Multi-level support)
@@ -1283,7 +1515,7 @@ class Game {
         const ranks = ['ROOKIE', 'PILOT', 'ACE', 'LEGEND', 'SKY GOD'];
         const rankIdx = Math.min(ranks.length - 1, Math.floor(this.state.level / 5));
         document.getElementById('rankName').innerText = ranks[rankIdx];
-        document.getElementById('rankIcon').innerText = ['🥉', '🥈', '🥇', '👑', '🌌'][rankIdx];
+        document.getElementById('rankIcon').innerHTML = '<div class="icon-trophy-large"></div>';
 
         const nextLevelXp = this.state.level * 1000;
         document.getElementById('rankProgress').style.width = (this.state.xp / nextLevelXp) * 100 + '%';
@@ -1339,6 +1571,7 @@ class Game {
         this.craft.velocity = 0;
         this.pillars = this.pillars.filter(p => p.x > this.craft.x + 100 || p.x < this.craft.x - 100);
         document.getElementById('gameOverScreen').style.display = 'none';
+        document.getElementById('gameUI').style.display = 'flex';
         document.getElementById('reviveBtn').style.display = 'none';
         if (window.CrazyGames && window.CrazyGames.SDK && window.CrazyGames.SDK.game) {
             window.CrazyGames.SDK.game.gameplayStart();
@@ -1366,7 +1599,7 @@ class Game {
         }
 
         if (this.boss) {
-            const bossPct = (this.boss.timer / 15000) * 100;
+            const bossPct = (this.boss.health / this.boss.maxHealth) * 100;
             if (this.lastUiValues.bossDisplay !== 'flex') {
                 this.ui.boss.style.display = 'flex';
                 this.lastUiValues.bossDisplay = 'flex';
@@ -1544,7 +1777,23 @@ class Game {
         }
 
         if (this.boss) {
-            this.boss.update(effectiveDt, this.craft.y);
+            this.boss.update(effectiveDt, this.craft.y, this.craft.x);
+
+            // Boss Body Collision (Damage the boss by dashing into it)
+            let bdx = this.craft.x - this.boss.x;
+            let bdy = this.craft.y - this.boss.y;
+            if (Math.sqrt(bdx*bdx + bdy*bdy) < this.craft.radius + 50) {
+                if (this.craft.phasing || this.craft.invulnerable > 0) {
+                    this.boss.health -= 2 * effectiveDt;
+                    this.shake = 8;
+                    this.glitch = 5;
+                    if (Math.random() < 0.1) {
+                         this.spawnFloater(this.boss.x, this.boss.y, 'CRITICAL HIT', '#ff00ff');
+                    }
+                } else if (!this.craft.shielded) {
+                    this.gameOver();
+                }
+            }
 
             // Check projectile collisions
             for (let i = this.boss.projectiles.length - 1; i >= 0; i--) {
@@ -1554,17 +1803,24 @@ class Game {
                 if (Math.sqrt(dx*dx + dy*dy) < this.craft.radius + 8) {
                     if (this.craft.phasing || this.craft.shielded || this.craft.invulnerable > 0) {
                         this.boss.projectiles.splice(i, 1);
+                        this.shake = 5;
+                        this.boss.health -= 5; // Reflect damage
+                        this.spawnFloater(p.x, p.y, 'REFLECTED', '#00ffff');
+                        if (window.audioManager) window.audioManager.playSound('score');
                     } else {
                         this.gameOver();
                     }
                 }
             }
 
-            if (this.boss.timer <= 0) {
+            if (this.boss.timer <= 0 || this.boss.health <= 0) {
                 this.boss = null;
+                this.flash = 30;
+                this.shake = 20;
                 this.spawnFloater(this.canvas.width/2, this.canvas.height/2, 'BOSS DEFEATED!', '#ffd700');
                 this.state.gems += 20;
                 this.state.xp += 1000;
+                this.score += 50;
                 if (window.audioManager) window.audioManager.playSound('score');
             }
         }
@@ -1582,7 +1838,7 @@ class Game {
         }
 
         if (!this.boss && (this.pillars.length === 0 || this.pillars[this.pillars.length - 1].x < this.canvas.width - (450 + difficultyFactor * 60))) {
-            let newPillar = new Pillar(this.canvas, this.canvas.width, this.selectedChar.color, currentGap);
+            let newPillar = new CyberGate(this.canvas, this.canvas.width, this.selectedChar.color, currentGap);
             this.pillars.push(newPillar);
 
             if (Math.random() < 0.8 * luckFactor) {
@@ -1594,7 +1850,7 @@ class Game {
                 this.powerups.push(new PowerUp(this.canvas, this.canvas.width + 150, Math.random() * (this.canvas.height - 100) + 50, types[Math.floor(Math.random() * types.length)]));
             }
 
-            if (this.score > 20 && Math.random() < 0.3) {
+            if (this.score > 15 && Math.random() < 0.25) {
                 this.drones.push(new EnemyDrone(this.canvas, this.canvas.width + 200, Math.random() * (this.canvas.height - 100) + 50));
             }
         }
@@ -1619,11 +1875,12 @@ class Game {
                 let distBottom = Math.abs(this.craft.y - (this.canvas.height - p.bottom));
                 if ((distTop < nearMissThreshold || distBottom < nearMissThreshold) && !p.nearMissed && !p.passed) {
                     p.nearMissed = true;
-                    let bonus = this.warpMode ? 6 : 2;
+                let bonus = this.warpMode ? 10 : 5; // Increased bonus
                     this.score += bonus;
-                    this.spawnFloater(this.craft.x, this.craft.y - 20, "NEAR MISS! +" + bonus, "#ff00ff");
-                    this.shake = 5;
-                    if (window.audioManager) window.audioManager.playSound('thrust');
+                this.spawnFloater(this.craft.x, this.craft.y - 20, "PERFECT MISS! +" + bonus, "#00ffff");
+                this.shake = 8;
+                this.hitStop = 2; // Tiny pause for satisfaction
+                if (window.audioManager) window.audioManager.playSound('score');
                 }
             }
 
@@ -1643,7 +1900,9 @@ class Game {
                 p.passed = true;
 
                 // Zone Transition check
-                if (this.score % 50 === 0 && this.score > 0 && this.score !== this.lastZoneScore) {
+                let currentZoneScoreBatch = Math.floor(this.score / 50);
+                let lastZoneScoreBatch = Math.floor(this.lastZoneScore / 50);
+                if (currentZoneScoreBatch > lastZoneScoreBatch && this.score > 0) {
                     this.lastZoneScore = this.score;
                     this.currentZoneIdx = (this.currentZoneIdx + 1) % this.zones.length;
                     const zone = this.zones[this.currentZoneIdx];
@@ -1688,12 +1947,14 @@ class Game {
                 if (window.audioManager) window.audioManager.playSound('score');
 
                 // Particle burst for coins
-                for(let j=0; j<8; j++) {
-                    this.craft.particles.push({
-                        x: c.x, y: c.y,
-                        vx: (Math.random()-0.5)*10, vy: (Math.random()-0.5)*10,
-                        life: 1.0, size: Math.random()*4+2
-                    });
+                if (this.state.settings.particles) {
+                    for(let j=0; j<8; j++) {
+                        this.craft.particles.push({
+                            x: c.x, y: c.y,
+                            vx: (Math.random()-0.5)*10, vy: (Math.random()-0.5)*10,
+                            life: 1.0, size: Math.random()*4+2
+                        });
+                    }
                 }
 
                 this.coins.splice(i, 1);
@@ -1733,7 +1994,7 @@ class Game {
             let effectiveRadius = this.craft.radius * (this.mutator?.id === 'tiny' ? 0.5 : 1.0);
             if (Math.sqrt(dx*dx + dy*dy) < effectiveRadius + pu.radius) {
                 this.applyPowerup(pu.type);
-                this.floaters.push(new ScoreFloater(pu.x, pu.y, pu.type.toUpperCase(), '#fff'));
+                this.spawnFloater(pu.x, pu.y, pu.type.toUpperCase(), '#fff');
 
                 // Track powerup usage for quests
                 const quest = this.state.dailyQuests.find(q => q.id === 3);
@@ -1778,6 +2039,7 @@ class Game {
 
         if (this.shake > 0) this.shake -= dt;
         if (this.flash > 0) this.flash -= dt;
+        if (this.glitch > 0) this.glitch -= dt;
 
         // Cleanup out-of-bounds particles for better perf
         if (this.craft.particles.length > 100) this.craft.particles.splice(0, 20);
@@ -1785,27 +2047,49 @@ class Game {
 
     triggerMutator() {
         const mutators = [
-            { id: 'gravity_flip', name: 'GRAVITY FLIP', gravity: -0.2 },
+            { id: 'gravity_flip', name: 'GRAVITY FLIP', gravity: -0.25 },
             { id: 'mirror', name: 'MIRROR MODE' },
             { id: 'tiny', name: 'TINY CRAFT' }
         ];
-        this.mutator = mutators[Math.floor(Math.random() * mutators.length)];
-        this.mutatorTimer = 8000; // 8 seconds
-        this.shake = 20;
-        this.flash = 10;
+
+        // Pick mutator based on score to ensure variety
+        let mIdx = Math.floor(this.score / 35) % mutators.length;
+        this.mutator = mutators[mIdx];
+
+        this.mutatorTimer = 10000; // Increased to 10s
+        this.shake = 25;
+        this.flash = 15;
+        this.glitch = 20; // Trigger screen glitch
+
         document.querySelector('.game-container').classList.add('rift-active');
         if (window.audioManager) window.audioManager.playSound('score');
-        this.spawnFloater(this.canvas.width/2, this.canvas.height/2, "RIFT: " + this.mutator.name, "#00ffff");
+        this.spawnFloater(this.canvas.width/2, this.canvas.height/2, "DIMENSIONAL RIFT DETECTED", "#ff00ff");
 
-        if (this.mutator.id === 'gravity_flip') {
-            this.craft.gravity = this.mutator.gravity;
-            this.craft.jump = 7; // Invert jump too
-            this.spawnFloater(this.canvas.width/2, this.canvas.height/2 + 60, "↑ CONTROLS INVERTED ↑", "#ff00ff");
-        }
+        setTimeout(() => {
+            this.spawnFloater(this.canvas.width/2, this.canvas.height/2 + 40, "EFFECT: " + this.mutator.name, "#00ffff");
+            if (this.mutator.id === 'gravity_flip') {
+                this.craft.gravity = this.mutator.gravity;
+                this.craft.jump = 7;
+                this.spawnFloater(this.canvas.width/2, this.canvas.height/2 + 80, "↑ GRAVITY REVERSED ↑", "#ff00ff");
+            }
+        }, 500);
     }
 
     applyPowerup(type) {
         if (window.audioManager) window.audioManager.playSound('score');
+
+        // Particle burst for powerup
+        if (this.state.settings.particles) {
+            for(let j=0; j<15; j++) {
+                this.craft.particles.push({
+                    x: this.craft.x, y: this.craft.y,
+                    vx: (Math.random()-0.5)*12, vy: (Math.random()-0.5)*12,
+                    life: 1.0, size: Math.random()*6+3,
+                    color: '#fff'
+                });
+            }
+        }
+
         const upgradeLevel = this.state.upgrades[type] || 1;
         this.activePowerups[type] = 300 + (upgradeLevel * 60); // Base 5s + 1s per level
         if (type === 'shield') this.craft.shielded = true;
@@ -1831,6 +2115,12 @@ class Game {
 
         if (this.shake > 0) {
             ctx.translate((Math.random() - 0.5) * this.shake, (Math.random() - 0.5) * this.shake);
+        }
+
+        if (this.glitch > 0 && Math.random() > 0.7) {
+            ctx.translate((Math.random() - 0.5) * 20, 0);
+            ctx.fillStyle = 'rgba(0, 255, 255, 0.15)';
+            ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
         }
 
         // Dynamic Camera Zoom/Tilt
@@ -1946,6 +2236,17 @@ class Game {
             let opacity = Math.min(0.8, this.flash * 0.08);
             ctx.fillStyle = `rgba(255, 255, 255, ${opacity})`;
             ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        }
+
+        // CRT Scanline / Glitch Overlay (Constant but subtle)
+        if (this.gameState === 'PLAYING') {
+            ctx.save();
+            ctx.globalCompositeOperation = 'overlay';
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+            for (let i = 0; i < this.canvas.height; i += 4) {
+                ctx.fillRect(0, i, this.canvas.width, 1);
+            }
+            ctx.restore();
         }
 
         ctx.restore();
