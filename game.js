@@ -9,6 +9,8 @@ class AeroCraft {
         this.ctx = canvas.getContext('2d');
         this.themeColor = themeColor || '#00f2ff';
         this.id = id;
+        this.particles = [];
+        this.particlePool = []; // Optimization: Pool for particles
         this.reset();
     }
 
@@ -21,7 +23,12 @@ class AeroCraft {
         this.jump = -6; // Ultra-easy floaty control
         this.radius = 15;
         this.rotation = 0;
-        this.particles = [];
+
+        // Return existing particles to pool
+        while(this.particles.length > 0) {
+            this.particlePool.push(this.particles.pop());
+        }
+
         this.pulse = 0;
         this.shielded = false;
         this.magnetized = false;
@@ -50,7 +57,7 @@ class AeroCraft {
 
         // Trail particles
         let trailChance = this.phasing ? 0.9 : 0.4;
-        if (this.particles.length > 50) trailChance *= 0.5; // Throttle if too many
+        if (this.particles.length > 60) trailChance *= 0.5; // Throttle if too many
         if (Math.random() > (1 - trailChance)) {
             let trailId = 'basic';
             if (window.game && window.game.state) trailId = window.game.state.selectedTrail;
@@ -63,15 +70,16 @@ class AeroCraft {
                 else if (trailId === 'fire') tColor = '#ff4b2b';
             }
 
-            this.particles.push({
-                x: this.x - 10,
-                y: this.y,
-                vx: (this.phasing ? -8 : -2) - Math.random() * 2,
-                vy: (Math.random() - 0.5) * 2,
-                life: 1.0,
-                size: (this.phasing ? 8 : 5) + Math.random() * 2,
-                color: tColor
-            });
+            // Object Pooling Logic
+            let p = this.particlePool.pop() || {};
+            p.x = this.x - 10;
+            p.y = this.y;
+            p.vx = (this.phasing ? -8 : -2) - Math.random() * 2;
+            p.vy = (Math.random() - 0.5) * 2;
+            p.life = 1.0;
+            p.size = (this.phasing ? 8 : 5) + Math.random() * 2;
+            p.color = tColor;
+            this.particles.push(p);
         }
 
         for (let i = this.particles.length - 1; i >= 0; i--) {
@@ -79,7 +87,9 @@ class AeroCraft {
             p.x += p.vx * dt;
             p.y += p.vy * dt;
             p.life -= 0.04 * dt;
-            if (p.life <= 0) this.particles.splice(i, 1);
+            if (p.life <= 0) {
+                this.particlePool.push(this.particles.splice(i, 1)[0]);
+            }
         }
 
         this.pulse += 0.1 * dt;
@@ -228,6 +238,8 @@ class Pillar {
         this.passed = false;
         this.color = themeColor;
         this.anim = 0;
+        // 20% chance to be a Laser Gate
+        this.isLaser = Math.random() < 0.2;
     }
 
     update(dt, speed) {
@@ -238,6 +250,11 @@ class Pillar {
     draw() {
         const ctx = this.ctx;
         const canvas = this.canvas;
+
+        if (this.isLaser) {
+            this.drawLaserGate(ctx);
+            return;
+        }
 
         let grad = ctx.createLinearGradient(this.x, 0, this.x + this.width, 0);
         grad.addColorStop(0, '#0a0a1a');
@@ -264,6 +281,31 @@ class Pillar {
         for(let y = canvas.height - this.bottom + stripeY; y < canvas.height; y += 50) {
             ctx.beginPath(); ctx.moveTo(this.x, y); ctx.lineTo(this.x + this.width, y); ctx.stroke();
         }
+
+        ctx.restore();
+    }
+
+    drawLaserGate(ctx) {
+        ctx.save();
+        // Posts
+        ctx.fillStyle = '#333';
+        ctx.fillRect(this.x, 0, this.width, this.top);
+        ctx.fillRect(this.x, this.canvas.height - this.bottom, this.width, this.bottom);
+
+        // Laser effect
+        const laserAlpha = 0.3 + Math.abs(Math.sin(this.anim * 2)) * 0.4;
+        ctx.globalAlpha = laserAlpha;
+        ctx.fillStyle = '#ff0000';
+        ctx.shadowBlur = 20;
+        ctx.shadowColor = '#ff0000';
+
+        // Horizontal laser lines
+        ctx.fillRect(this.x - 5, this.top - 5, this.width + 10, 5);
+        ctx.fillRect(this.x - 5, this.canvas.height - this.bottom, this.width + 10, 5);
+
+        // Vertical connecting beams
+        ctx.fillRect(this.x + 10, this.top, 2, this.gap);
+        ctx.fillRect(this.x + this.width - 12, this.top, 2, this.gap);
 
         ctx.restore();
     }
@@ -491,18 +533,24 @@ class EnemyDrone {
 }
 
 class ScoreFloater {
-    constructor(x, y, text, color) {
+    constructor() {
+        this.reset(0, 0, "", "#fff");
+    }
+    reset(x, y, text, color) {
         this.x = x;
         this.y = y;
         this.text = text;
         this.color = color || '#fff';
         this.life = 1.0;
+        this.active = true;
     }
     update(dt) {
         this.y -= 2 * dt;
         this.life -= 0.02 * dt;
+        if (this.life <= 0) this.active = false;
     }
     draw(ctx) {
+        if (!this.active) return;
         ctx.save();
         ctx.globalAlpha = this.life;
         ctx.fillStyle = this.color;
@@ -606,7 +654,9 @@ class Game {
         this.powerups = [];
         this.drones = [];
         this.floaters = [];
+        this.floaterPool = [];
         this.stars = this.initStars();
+        this.buildings = this.initBuildings();
 
         this.score = 0;
         this.combo = 1;
@@ -685,6 +735,27 @@ class Game {
             layers[0].push({ x: Math.random() * this.canvas.width, y: Math.random() * this.canvas.height, s: Math.random() * 2 });
             layers[1].push({ x: Math.random() * this.canvas.width, y: Math.random() * this.canvas.height, s: Math.random() * 1.5 });
             layers[2].push({ x: Math.random() * this.canvas.width, y: Math.random() * this.canvas.height, s: Math.random() * 1 });
+        }
+        return layers;
+    }
+
+    initBuildings() {
+        let layers = [[], []];
+        // Distant silhouettes
+        for (let i = 0; i < 15; i++) {
+            layers[0].push({
+                x: Math.random() * this.canvas.width,
+                w: 60 + Math.random() * 100,
+                h: 200 + Math.random() * 300,
+                color: 'rgba(20, 20, 40, 0.4)'
+            });
+            // Mid-ground structures
+            layers[1].push({
+                x: Math.random() * this.canvas.width,
+                w: 40 + Math.random() * 80,
+                h: 100 + Math.random() * 200,
+                color: 'rgba(30, 30, 60, 0.6)'
+            });
         }
         return layers;
     }
@@ -914,6 +985,8 @@ class Game {
         document.getElementById('restartBtn').addEventListener('click', () => this.startGame());
         document.getElementById('mainMenuBtn').addEventListener('click', () => this.showMenu());
         document.getElementById('reviveBtn').addEventListener('click', () => this.reviveWithAd());
+        document.getElementById('doubleRewardBtn').addEventListener('click', () => this.doubleRewardsWithAd());
+        document.getElementById('dailyAdBtn').addEventListener('click', () => this.claimDailyGiftWithAd());
 
         // Monetization Buttons
         document.querySelectorAll('.coin-pill .add-btn').forEach(btn => {
@@ -1078,6 +1151,53 @@ class Game {
         }
     }
 
+    doubleRewardsWithAd() {
+        if (window.CrazyGames && window.CrazyGames.SDK && window.CrazyGames.SDK.ad) {
+            window.CrazyGames.SDK.ad.requestAd('rewarded', {
+                adStarted: () => { if(window.audioManager) window.audioManager.mute(); },
+                adFinished: () => {
+                    if(window.audioManager) window.audioManager.unmute();
+                    this.state.coins += this.coinsInRun; // Add another set of coins
+                    this.coinsInRun *= 2;
+                    document.getElementById('coinsCollected').textContent = this.coinsInRun;
+                    document.getElementById('doubleRewardBtn').style.display = 'none';
+                    this.refreshLobby();
+                    if (window.audioManager) window.audioManager.playSound('score');
+                },
+                adError: () => { if(window.audioManager) window.audioManager.unmute(); }
+            });
+        } else {
+            this.state.coins += this.coinsInRun;
+            this.coinsInRun *= 2;
+            document.getElementById('coinsCollected').textContent = this.coinsInRun;
+            document.getElementById('doubleRewardBtn').style.display = 'none';
+            this.refreshLobby();
+        }
+    }
+
+    claimDailyGiftWithAd() {
+        if (window.CrazyGames && window.CrazyGames.SDK && window.CrazyGames.SDK.ad) {
+            window.CrazyGames.SDK.ad.requestAd('rewarded', {
+                adStarted: () => { if(window.audioManager) window.audioManager.mute(); },
+                adFinished: () => {
+                    if(window.audioManager) window.audioManager.unmute();
+                    const reward = 1000 + Math.floor(Math.random() * 2000);
+                    this.state.coins += reward;
+                    alert(`Daily Gift Claimed: 💰 ${reward} Coins!`);
+                    document.getElementById('dailyGiftContainer').style.display = 'none';
+                    this.refreshLobby();
+                    if (window.audioManager) window.audioManager.playSound('score');
+                },
+                adError: () => { if(window.audioManager) window.audioManager.unmute(); }
+            });
+        } else {
+            this.state.coins += 1000;
+            alert("Daily Gift Claimed: 💰 1000 Coins!");
+            document.getElementById('dailyGiftContainer').style.display = 'none';
+            this.refreshLobby();
+        }
+    }
+
     gameOver() {
         if (this.gameState === 'GAMEOVER') return;
         if (this.craft.phasing || this.craft.invulnerable > 0) return;
@@ -1111,7 +1231,7 @@ class Game {
 
         if (this.score > this.state.highScore) {
             if (!this.newBestNotified && this.state.highScore > 0) {
-                this.floaters.push(new ScoreFloater(this.canvas.width/2, this.canvas.height/3, "NEW BEST!", "#ffff00"));
+                this.spawnFloater(this.canvas.width/2, this.canvas.height/3, "NEW BEST!", "#ffff00");
                 this.flash = 15;
                 if (window.audioManager) window.audioManager.playSound('score');
                 this.newBestNotified = true;
@@ -1130,7 +1250,7 @@ class Game {
             leveledUp = true;
         }
         if (leveledUp) {
-            this.floaters.push(new ScoreFloater(this.canvas.width/2, this.canvas.height/2, 'LEVEL UP!', '#00f2fe'));
+            this.spawnFloater(this.canvas.width/2, this.canvas.height/2, 'LEVEL UP!', '#00f2fe');
             if (window.audioManager) window.audioManager.playSound('score');
         }
 
@@ -1148,7 +1268,7 @@ class Game {
                 if (q.type === 'xp') this.state.xp += q.reward;
                 if (q.type === 'gems') this.state.gems += q.reward;
 
-                this.floaters.push(new ScoreFloater(this.canvas.width/2, this.canvas.height/2 + 40, "QUEST COMPLETE: " + q.text, "#22c55e"));
+                this.spawnFloater(this.canvas.width/2, this.canvas.height/2 + 40, "QUEST COMPLETE: " + q.text, "#22c55e");
                 if (window.audioManager) window.audioManager.playSound('score');
             }
         });
@@ -1168,12 +1288,19 @@ class Game {
         const nextLevelXp = this.state.level * 1000;
         document.getElementById('rankProgress').style.width = (this.state.xp / nextLevelXp) * 100 + '%';
 
+        document.getElementById('gameUI').style.display = 'none';
         document.getElementById('gameOverScreen').style.display = 'flex';
 
         if (this.canRevive) {
             document.getElementById('reviveBtn').style.display = 'flex';
         } else {
             document.getElementById('reviveBtn').style.display = 'none';
+        }
+
+        if (this.coinsInRun > 0) {
+            document.getElementById('doubleRewardBtn').style.display = 'flex';
+        } else {
+            document.getElementById('doubleRewardBtn').style.display = 'none';
         }
 
         if (window.CrazyGames && window.CrazyGames.SDK && window.CrazyGames.SDK.game) {
@@ -1219,7 +1346,6 @@ class Game {
     }
 
     showMenu() {
-        console.log("Showing Menu");
         this.gameState = 'START';
         document.getElementById('pauseMenuOverlay').classList.remove('active');
         document.getElementById('gameOverScreen').style.display = 'none';
@@ -1233,17 +1359,25 @@ class Game {
     updateUI() {
         if (!this.ui.score) return;
 
-        // Only update DOM if values changed (Performance optimization)
+        // Anti-Freeze Optimization: Check dirty bits before DOM manipulation
         if (this.lastUiValues.score !== this.score) {
-            this.ui.score.innerText = this.score;
+            this.ui.score.textContent = this.score;
             this.lastUiValues.score = this.score;
         }
 
         if (this.boss) {
-            this.ui.boss.style.display = 'flex';
-            this.ui.bossFill.style.width = (this.boss.timer / 15000) * 100 + '%';
-        } else {
+            const bossPct = (this.boss.timer / 15000) * 100;
+            if (this.lastUiValues.bossDisplay !== 'flex') {
+                this.ui.boss.style.display = 'flex';
+                this.lastUiValues.bossDisplay = 'flex';
+            }
+            if (this.lastUiValues.bossPct !== bossPct) {
+                this.ui.bossFill.style.width = bossPct + '%';
+                this.lastUiValues.bossPct = bossPct;
+            }
+        } else if (this.lastUiValues.bossDisplay !== 'none') {
             this.ui.boss.style.display = 'none';
+            this.lastUiValues.bossDisplay = 'none';
         }
 
         let dashPct = Math.max(0, 100 - (this.craft.phaseCooldown / 4000) * 100);
@@ -1258,28 +1392,30 @@ class Game {
         let progPct = (this.score % 50) * 2;
         if (this.lastUiValues.prog !== progPct) {
             this.ui.progFill.style.width = progPct + '%';
-            this.ui.progText.innerText = `${zone.name}: ${progPct}%`;
+            this.ui.progText.textContent = `${zone.name}: ${progPct}%`;
             this.lastUiValues.prog = progPct;
         }
 
         let comboValText = this.gameMode === 'time' ? Math.ceil(this.timeLeft) + 's' : 'x' + this.combo;
         if (this.lastUiValues.comboVal !== comboValText) {
-            this.ui.comboVal.innerText = comboValText;
+            this.ui.comboVal.textContent = comboValText;
             this.lastUiValues.comboVal = comboValText;
         }
 
         if (this.lastUiValues.coins !== this.coinsInRun) {
-            this.ui.coinsVal.innerText = this.coinsInRun;
+            this.ui.coinsVal.textContent = this.coinsInRun;
             this.lastUiValues.coins = this.coinsInRun;
         }
 
         if (this.lastUiValues.combo !== this.combo) {
             if (this.combo > 1) {
-                this.ui.comboMeter.innerText = 'COMBO x' + this.combo;
-                this.ui.comboMeter.classList.add('bump');
-                setTimeout(() => this.ui.comboMeter.classList.remove('bump'), 200);
+                this.ui.comboMeter.textContent = 'COMBO x' + this.combo;
+                if (!this.ui.comboMeter.classList.contains('bump')) {
+                    this.ui.comboMeter.classList.add('bump');
+                    setTimeout(() => this.ui.comboMeter.classList.remove('bump'), 200);
+                }
             } else {
-                this.ui.comboMeter.innerText = '';
+                this.ui.comboMeter.textContent = '';
             }
             this.lastUiValues.combo = this.combo;
         }
@@ -1297,7 +1433,7 @@ class Game {
         }
 
         if (this.lastUiValues.diff !== diffText) {
-            this.ui.difficulty.innerText = diffText;
+            this.ui.difficulty.textContent = diffText;
             this.ui.difficulty.style.color = diffColor;
             this.lastUiValues.diff = diffText;
         }
@@ -1308,7 +1444,9 @@ class Game {
         try {
             let dt = (timestamp - this.lastTime) / 16.67;
             this.lastTime = timestamp;
-            if (dt > 5) dt = 1;
+
+            // Limit dt to avoid massive leaps after a freeze/tab-switch
+            if (dt > 3) dt = 1;
             if (dt <= 0) dt = 0.001;
 
             if (this.hitStop > 0) {
@@ -1335,6 +1473,8 @@ class Game {
             requestAnimationFrame((t) => this.loop(t));
         } catch (e) {
             console.error("Game Loop Error:", e);
+            // Attempt to recover by resetting lastTime
+            this.lastTime = 0;
             requestAnimationFrame((t) => this.loop(t));
         }
     }
@@ -1373,7 +1513,7 @@ class Game {
                 this.pointsToWarp += 40;
                 this.shake = 15;
                 this.craft.shielded = true; // Speed-Shield grant
-                this.floaters.push(new ScoreFloater(this.craft.x, this.craft.y - 40, "SPEED SHIELD!", "#00ffff"));
+                this.spawnFloater(this.craft.x, this.craft.y - 40, "SPEED SHIELD!", "#00ffff");
                 document.querySelector('.game-container').classList.add('warp-active');
                 if (window.audioManager) window.audioManager.playSound('score');
             }
@@ -1422,7 +1562,7 @@ class Game {
 
             if (this.boss.timer <= 0) {
                 this.boss = null;
-                this.floaters.push(new ScoreFloater(this.canvas.width/2, this.canvas.height/2, 'BOSS DEFEATED!', '#ffd700'));
+                this.spawnFloater(this.canvas.width/2, this.canvas.height/2, 'BOSS DEFEATED!', '#ffd700');
                 this.state.gems += 20;
                 this.state.xp += 1000;
                 if (window.audioManager) window.audioManager.playSound('score');
@@ -1435,7 +1575,7 @@ class Game {
             this.shake = 30;
             this.flash = 20;
             this.craft.invulnerable = 2000; // 2s grace during boss entry
-            this.floaters.push(new ScoreFloater(this.canvas.width/2, this.canvas.height/2, 'BOSS INCOMING!', '#ff00ff'));
+            this.spawnFloater(this.canvas.width/2, this.canvas.height/2, 'BOSS INCOMING!', '#ff00ff');
         } else if (this.score >= this.pointsToMutate) {
             this.triggerMutator();
             this.pointsToMutate += 35;
@@ -1481,7 +1621,7 @@ class Game {
                     p.nearMissed = true;
                     let bonus = this.warpMode ? 6 : 2;
                     this.score += bonus;
-                    this.floaters.push(new ScoreFloater(this.craft.x, this.craft.y - 20, "NEAR MISS! +" + bonus, "#ff00ff"));
+                    this.spawnFloater(this.craft.x, this.craft.y - 20, "NEAR MISS! +" + bonus, "#ff00ff");
                     this.shake = 5;
                     if (window.audioManager) window.audioManager.playSound('thrust');
                 }
@@ -1511,7 +1651,7 @@ class Game {
                     this.flash = 20;
                     this.shake = 15;
                     this.craft.invulnerable = 1500; // 1.5s grace period during zone transition
-                    this.floaters.push(new ScoreFloater(this.canvas.width/2, this.canvas.height/2, "ENTERING " + zone.name, zone.color));
+                    this.spawnFloater(this.canvas.width/2, this.canvas.height/2, "ENTERING " + zone.name, zone.color);
                     if (window.audioManager) window.audioManager.playSound('score');
                 }
 
@@ -1525,7 +1665,7 @@ class Game {
                 // Grant shield every 25 points if speed is high
                 if (this.score % 25 === 0 && this.gameSpeed > 5) {
                     this.craft.shielded = true;
-                    this.floaters.push(new ScoreFloater(this.craft.x, this.craft.y - 40, "MILESTONE SHIELD!", "#00ffff"));
+                    this.spawnFloater(this.craft.x, this.craft.y - 40, "MILESTONE SHIELD!", "#00ffff");
                 }
 
                 this.combo++;
@@ -1544,7 +1684,7 @@ class Game {
             let effectiveRadius = this.craft.radius * (this.mutator?.id === 'tiny' ? 0.5 : 1.0);
             if (Math.sqrt(dx*dx + dy*dy) < effectiveRadius + c.radius) {
                 this.coinsInRun++;
-                this.floaters.push(new ScoreFloater(c.x, c.y, '+1', '#ffd700'));
+                this.spawnFloater(c.x, c.y, '+1', '#ffd700');
                 if (window.audioManager) window.audioManager.playSound('score');
 
                 // Particle burst for coins
@@ -1572,7 +1712,7 @@ class Game {
             if (Math.sqrt(dx*dx + dy*dy) < effectiveRadius + dr.radius) {
                 if (this.craft.phasing || this.craft.shielded || this.craft.invulnerable > 0) {
                     // Destroy drone
-                    this.floaters.push(new ScoreFloater(dr.x, dr.y, 'DRONE DESTROYED', '#ff0044'));
+                    this.spawnFloater(dr.x, dr.y, 'DRONE DESTROYED', '#ff0044');
                     this.shake = 10;
                     this.drones.splice(i, 1);
                     if (window.audioManager) window.audioManager.playSound('score');
@@ -1620,10 +1760,13 @@ class Game {
             this.craft.shielded = false;
         }
 
-        // Floaters
+        // Floaters Update with Pooling
         for (let i = this.floaters.length - 1; i >= 0; i--) {
-            this.floaters[i].update(dt);
-            if (this.floaters[i].life <= 0) this.floaters.splice(i, 1);
+            let f = this.floaters[i];
+            f.update(dt);
+            if (!f.active) {
+                this.floaterPool.push(this.floaters.splice(i, 1)[0]);
+            }
         }
 
         let effectiveRadius = this.craft.radius * (this.mutator?.id === 'tiny' ? 0.5 : 1.0);
@@ -1652,12 +1795,12 @@ class Game {
         this.flash = 10;
         document.querySelector('.game-container').classList.add('rift-active');
         if (window.audioManager) window.audioManager.playSound('score');
-        this.floaters.push(new ScoreFloater(this.canvas.width/2, this.canvas.height/2, "RIFT: " + this.mutator.name, "#00ffff"));
+        this.spawnFloater(this.canvas.width/2, this.canvas.height/2, "RIFT: " + this.mutator.name, "#00ffff");
 
         if (this.mutator.id === 'gravity_flip') {
             this.craft.gravity = this.mutator.gravity;
             this.craft.jump = 7; // Invert jump too
-            this.floaters.push(new ScoreFloater(this.canvas.width/2, this.canvas.height/2 + 60, "↑ CONTROLS INVERTED ↑", "#ff00ff"));
+            this.spawnFloater(this.canvas.width/2, this.canvas.height/2 + 60, "↑ CONTROLS INVERTED ↑", "#ff00ff");
         }
     }
 
@@ -1667,6 +1810,12 @@ class Game {
         this.activePowerups[type] = 300 + (upgradeLevel * 60); // Base 5s + 1s per level
         if (type === 'shield') this.craft.shielded = true;
         if (type === 'magnet') this.craft.magnetized = true;
+    }
+
+    spawnFloater(x, y, text, color) {
+        let f = this.floaterPool.pop() || new ScoreFloater();
+        f.reset(x, y, text, color);
+        this.floaters.push(f);
     }
 
     draw() {
@@ -1702,6 +1851,21 @@ class Game {
                 ctx.moveTo(x, y);
                 ctx.lineTo(x + 150, y);
                 ctx.stroke();
+            }
+        }
+
+        // Background Buildings Parallax
+        for (let i = 0; i < this.buildings.length; i++) {
+            let layer = this.buildings[i];
+            let layerSpeed = (i + 1) * 0.2 * this.gameSpeed;
+            for (let b of layer) {
+                b.x -= layerSpeed * 0.1;
+                if (b.x + b.w < 0) b.x = this.canvas.width;
+                ctx.fillStyle = b.color;
+                ctx.fillRect(b.x, this.canvas.height - b.h, b.w, b.h);
+                // Window highlights
+                ctx.fillStyle = 'rgba(0, 242, 254, 0.1)';
+                ctx.fillRect(b.x + 10, this.canvas.height - b.h + 20, b.w - 20, 10);
             }
         }
 
