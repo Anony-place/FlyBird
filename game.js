@@ -305,6 +305,11 @@ class CyberGate {
     update(dt, speed) {
         this.x -= speed * dt;
         this.anim += 0.05 * dt;
+        
+        // Update laser animation
+        if (this.isLaser) {
+            this.laserAnim = (this.laserAnim || 0) + 0.1 * dt;
+        }
     }
 
     draw() {
@@ -384,27 +389,61 @@ class CyberGate {
         this.roundRect(ctx, this.x + 10, canvas.height - this.bottom, this.width - 20, this.bottom, 5);
         ctx.fill(); ctx.stroke();
 
-        // Laser emitters
-        ctx.fillStyle = '#ff0044';
-        ctx.shadowBlur = 20;
+        // Laser emitters with pulse glow
+        const emitterPulse = Math.sin(this.laserAnim || 0) * 0.3 + 0.7;
+        ctx.fillStyle = `rgba(255, 0, 68, ${emitterPulse})`;
+        ctx.shadowBlur = 25 + emitterPulse * 10;
         ctx.shadowColor = '#ff0044';
         ctx.fillRect(this.x, this.top - 10, this.width, 10);
         ctx.fillRect(this.x, canvas.height - this.bottom, this.width, 10);
 
-        // Dynamic Lasers
+        // Dynamic Lasers - Wavy energy beams
         const laserCount = 3;
-        const time = Date.now() * 0.01;
+        const time = (this.laserAnim || 0) * 2;
         for (let i = 0; i < laserCount; i++) {
-            const offset = (Math.sin(time + i) * 5);
-            const alpha = 0.2 + Math.random() * 0.5;
+            const phaseOffset = i * 1.5;
+            const alpha = 0.4 + Math.sin(time + phaseOffset) * 0.3;
             ctx.globalAlpha = alpha;
-            ctx.strokeStyle = '#ff0044';
-            ctx.lineWidth = 2;
+            
+            // Gradient laser beam
+            const gradient = ctx.createLinearGradient(
+                this.x + 10, this.top,
+                this.x + 10, canvas.height - this.bottom
+            );
+            gradient.addColorStop(0, 'rgba(255, 0, 68, 0)');
+            gradient.addColorStop(0.2, `rgba(255, 100, 100, ${alpha})`);
+            gradient.addColorStop(0.5, `rgba(255, 0, 68, ${alpha * 1.5})`);
+            gradient.addColorStop(0.8, `rgba(255, 100, 100, ${alpha})`);
+            gradient.addColorStop(1, 'rgba(255, 0, 68, 0)');
+            
+            ctx.strokeStyle = gradient;
+            ctx.lineWidth = 3 + Math.sin(time + phaseOffset) * 1;
             const lx = this.x + 10 + (i * (this.width - 20) / (laserCount - 1));
+            
+            // Draw wavy laser line
             ctx.beginPath();
-            ctx.moveTo(lx, this.top);
-            ctx.lineTo(lx, canvas.height - this.bottom);
+            const segments = 10;
+            for (let j = 0; j <= segments; j++) {
+                const ly = this.top + (j / segments) * (canvas.height - this.bottom - this.top);
+                const waveX = Math.sin(time * 2 + j * 0.5 + phaseOffset) * 3;
+                if (j === 0) {
+                    ctx.moveTo(lx + waveX, ly);
+                } else {
+                    ctx.lineTo(lx + waveX, ly);
+                }
+            }
             ctx.stroke();
+        }
+        
+        // Laser danger warning particles
+        ctx.globalAlpha = 0.3;
+        ctx.fillStyle = '#ff0044';
+        for (let i = 0; i < 3; i++) {
+            const px = this.x + 15 + (i * 15);
+            const py = this.top + Math.sin(time * 3 + i) * (this.gap * 0.3);
+            ctx.beginPath();
+            ctx.arc(px, py, 2, 0, Math.PI * 2);
+            ctx.fill();
         }
 
         ctx.restore();
