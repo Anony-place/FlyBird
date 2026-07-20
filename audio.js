@@ -1,5 +1,5 @@
 /**
- * Aero Dash: Sky High - Audio Manager
+ * Neon Ghost: Phase Runner - Audio Manager
  * Professional Web Audio implementation with CrazyGames ad-break support.
  */
 
